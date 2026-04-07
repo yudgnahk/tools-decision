@@ -104,19 +104,50 @@ Copy the command file to your OpenCode commands directory:
 # Global (available in all projects)
 mkdir -p ~/.config/opencode/commands
 cp .opencode/commands/mcp-setup.md ~/.config/opencode/commands/
+cp .opencode/commands/tools-decision.md ~/.config/opencode/commands/
 
 # Or per-project
 mkdir -p .opencode/commands
 cp .opencode/commands/mcp-setup.md .opencode/commands/
+cp .opencode/commands/tools-decision.md .opencode/commands/
 ```
 
 Then use it in OpenCode:
 
 ```
+/tools-decision
+
+# Legacy alias (still supported)
 /mcp-setup
 ```
 
-The command will analyze your project, recommend servers, and generate configuration.
+You can also pass a project idea directly:
+
+```
+/tools-decision I want to create a API service with Golang, Gorm and Gin, about the micro-services with auth service first
+```
+
+The command will analyze your project or idea, recommend servers, and generate configuration.
+
+### As a Slash Command (Claude Code)
+
+Copy the command file to your Claude Code commands directory:
+
+```bash
+# Global
+mkdir -p ~/.claude/commands
+cp .claude/commands/tools-decision.md ~/.claude/commands/
+
+# Or per-project
+mkdir -p .claude/commands
+cp .claude/commands/tools-decision.md .claude/commands/
+```
+
+Then use it:
+
+```
+/tools-decision I want to create a API service with Golang, Gorm and Gin, about the micro-services with auth service first
+```
 
 ## How It Works
 

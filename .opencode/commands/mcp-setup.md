@@ -1,9 +1,11 @@
 ---
-description: Recommend and configure MCP servers for this project
+description: Recommend and configure MCP servers for this project (legacy alias)
 agent: build
 ---
 
 Set up MCP (Model Context Protocol) servers for this project. $ARGUMENTS
+
+Note: `/mcp-setup` is a legacy alias. Prefer `/tools-decision` for new usage.
 
 ## Determine Project State
 
