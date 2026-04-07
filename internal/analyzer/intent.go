@@ -52,7 +52,7 @@ func (a *IntentAnalyzer) AnalyzeIdea(idea string) *types.ProjectContext {
 			if pattern.Service != "" {
 				serviceScores[pattern.Service] += pattern.Confidence
 			}
-			if pattern.ProjectType != types.ProjectTypeUnknown {
+			if pattern.ProjectType != "" && pattern.ProjectType != types.ProjectTypeUnknown {
 				ctx.Type = pattern.ProjectType
 			}
 		}
@@ -133,6 +133,25 @@ func defaultPatterns() []IntentPattern {
 		{Keywords: []string{"fiber"}, Framework: "fiber", Language: "go", Confidence: 0.95},
 		{Keywords: []string{"chi"}, Framework: "chi", Language: "go", Confidence: 0.9},
 		{Keywords: []string{"cobra"}, Framework: "cobra", Language: "go", ProjectType: types.ProjectTypeCLI, Confidence: 0.9},
+
+		// Frameworks - Rust
+		{Keywords: []string{"rust"}, Language: "rust", Confidence: 0.95},
+		{Keywords: []string{"actix", "actix-web"}, Framework: "actix", Language: "rust", Confidence: 0.95},
+		{Keywords: []string{"axum"}, Framework: "axum", Language: "rust", Confidence: 0.95},
+		{Keywords: []string{"rocket"}, Framework: "rocket", Language: "rust", Confidence: 0.95},
+		{Keywords: []string{"tokio"}, Framework: "tokio", Language: "rust", Confidence: 0.9},
+		{Keywords: []string{"warp"}, Framework: "warp", Language: "rust", Confidence: 0.9},
+		{Keywords: []string{"tauri"}, Framework: "tauri", Language: "rust", ProjectType: types.ProjectTypeDesktop, Confidence: 0.95},
+		{Keywords: []string{"clap"}, Framework: "clap", Language: "rust", ProjectType: types.ProjectTypeCLI, Confidence: 0.9},
+
+		// Frameworks - Java/Kotlin
+		{Keywords: []string{"spring boot", "springboot"}, Framework: "spring-boot", Language: "java", Confidence: 0.95},
+		{Keywords: []string{"spring"}, Framework: "spring", Language: "java", Confidence: 0.9},
+		{Keywords: []string{"quarkus"}, Framework: "quarkus", Language: "java", Confidence: 0.95},
+		{Keywords: []string{"micronaut"}, Framework: "micronaut", Language: "java", Confidence: 0.95},
+		{Keywords: []string{"kotlin"}, Language: "kotlin", Confidence: 0.95},
+		{Keywords: []string{"ktor"}, Framework: "ktor", Language: "kotlin", Confidence: 0.95},
+		{Keywords: []string{"android"}, Language: "kotlin", ProjectType: types.ProjectTypeMobile, Confidence: 0.9},
 
 		// Databases
 		{Keywords: []string{"postgres", "postgresql", "pg"}, Service: "postgresql", Confidence: 0.95},

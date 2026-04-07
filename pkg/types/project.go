@@ -44,5 +44,7 @@ const (
 	ProjectTypeAPI     ProjectType = "api"
 	ProjectTypeCLI     ProjectType = "cli"
 	ProjectTypeLibrary ProjectType = "library"
+	ProjectTypeDesktop ProjectType = "desktop"
+	ProjectTypeMobile  ProjectType = "mobile"
 	ProjectTypeUnknown ProjectType = "unknown"
 )

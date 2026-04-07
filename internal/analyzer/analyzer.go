@@ -38,7 +38,8 @@ func New() *Analyzer {
 			NewJavaScriptDetector(),
 			NewPythonDetector(),
 			NewGoDetector(),
-			// Add more detectors here
+			NewRustDetector(),
+			NewJavaDetector(),
 		},
 	}
 }
