@@ -1,0 +1,31 @@
+# Binaries
+tools-decision
+*.exe
+dist/
+
+# Build artifacts
+coverage.out
+coverage.html
+
+# Dependencies
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+
+# Test
+*.test
+
+# Debug
+__debug_bin
