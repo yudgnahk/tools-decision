@@ -12,7 +12,7 @@ Found a bug or have a feature request? [Open an issue](https://github.com/yudgna
 - What you expected to happen
 - What actually happened
 - Steps to reproduce
-- Your environment (OS, Node version, project type)
+- Your environment (OS, Go version, project type)
 
 ### 2. Improve Detection
 
@@ -20,30 +20,46 @@ The analyzer detects languages, frameworks, and project types. Help us improve:
 
 **Add a new language/framework detector:**
 
-```typescript
-// src/analyzer/detectors/ruby.ts
-import { Detector, ProjectContext } from '../types';
+```go
+// internal/analyzer/ruby.go
+package analyzer
 
-export const rubyDetector: Detector = {
-  name: 'ruby',
-  
-  async detect(projectPath: string): Promise<Partial<ProjectContext>> {
-    const gemfile = await readFile(join(projectPath, 'Gemfile'));
-    if (!gemfile) return {};
-    
-    const context: Partial<ProjectContext> = {
-      languages: [{ name: 'ruby', confidence: 0.95 }],
-      frameworks: [],
-    };
-    
-    // Detect Rails
-    if (gemfile.includes('rails')) {
-      context.frameworks.push({ name: 'rails', confidence: 0.9 });
+import (
+    "context"
+    "os"
+    "path/filepath"
+    "strings"
+
+    "github.com/yudgnahk/tools-decision/pkg/types"
+)
+
+type RubyDetector struct{}
+
+func NewRubyDetector() *RubyDetector {
+    return &RubyDetector{}
+}
+
+func (d *RubyDetector) Name() string {
+    return "ruby"
+}
+
+func (d *RubyDetector) Detect(_ context.Context, projectPath string) (*DetectorResult, error) {
+    gemfilePath := filepath.Join(projectPath, "Gemfile")
+    content, err := os.ReadFile(gemfilePath)
+    if err != nil {
+        return nil, nil
     }
-    
-    return context;
-  }
-};
+
+    result := &DetectorResult{
+        Languages: []types.Language{{Name: "ruby", Confidence: 0.95}},
+    }
+
+    if strings.Contains(string(content), "rails") {
+        result.Frameworks = append(result.Frameworks, types.Framework{Name: "rails", Confidence: 0.9})
+    }
+
+    return result, nil
+}
 ```
 
 ### 3. Add MCP Server Profiles
@@ -89,33 +105,38 @@ The matcher scores how relevant each server is. Ideas:
 
 Support more AI tools:
 
-```typescript
-// src/config/formats/windsurf.ts
-import { ConfigFormat } from '../types';
+```go
+// internal/config/generator.go
+func (g *Generator) generateWindsurf(servers []types.MCPServer) (*types.ConfigOutput, error) {
+    mcpServers := make(map[string]any)
 
-export const windsurfFormat: ConfigFormat = {
-  name: 'windsurf',
-  filename: '.windsurf/mcp.json',
-  
-  generate(servers: MCPServer[]): object {
-    return {
-      version: 1,
-      servers: servers.map(s => ({
-        name: s.slug,
-        command: s.installation.command,
-        args: s.installation.args,
-      }))
-    };
-  }
-};
+    for _, server := range servers {
+        mcpServers[server.Slug] = map[string]any{
+            "command": server.Install.Command,
+            "args":    server.Install.Args,
+        }
+    }
+
+    content := map[string]any{
+        "mcpServers": mcpServers,
+    }
+
+    return &types.ConfigOutput{
+        Format:   "windsurf",
+        Filename: "mcp.json",
+        Path:     ".windsurf/mcp.json",
+        Content:  content,
+    }, nil
+}
 ```
 
 ## Development Setup
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm (recommended) or npm
+- Go 1.22+
+- Make (recommended)
+- golangci-lint (optional, for linting)
 
 ### Getting Started
 
@@ -125,62 +146,57 @@ git clone https://github.com/yudgnahk/tools-decision.git
 cd tools-decision
 
 # Install dependencies
-pnpm install
+go mod download
 
 # Run in development mode
-pnpm dev
+make dev
 
 # Run tests
-pnpm test
+make test
 
 # Build
-pnpm build
+make build
 
 # Test CLI locally
-pnpm link
-tools-decision --help
+./tools-decision --help
 ```
 
 ### Project Structure
 
 ```
-src/
-├── cli/          # Command-line interface
-├── analyzer/     # Project detection
-├── registry/     # MCP registry fetching/caching
-├── matcher/      # Recommendation algorithm
-└── config/       # Config file generation
+cmd/                   # CLI entrypoint
+└── tools-decision/
+internal/
+├── analyzer/          # Project detection
+├── registry/          # MCP registry fetching/caching
+├── matcher/           # Recommendation algorithm
+└── config/            # Config file generation
+pkg/
+└── types/             # Shared domain models
 ```
 
 ### Running Tests
 
 ```bash
 # Run all tests
-pnpm test
+go test ./...
 
 # Run specific test file
-pnpm test analyzer
+go test ./internal/analyzer -run TestIntent
 
 # Run with coverage
-pnpm test:coverage
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
 
-# Run in watch mode
-pnpm test:watch
+# Run in watch mode (requires watchexec)
+watchexec -r go test ./...
 ```
 
-### Test Fixtures
+### Testing Notes
 
-We have sample projects for testing detection:
-
-```
-tests/fixtures/
-├── nextjs-app/        # Next.js + TypeScript
-├── fastapi-app/       # Python FastAPI
-├── go-api/            # Go with Gin
-└── monorepo/          # Multi-language monorepo
-```
-
-Add new fixtures to test edge cases.
+- Prefer table-driven tests in `*_test.go` files.
+- Keep tests deterministic (no network and no external services).
+- Add targeted unit tests when adding detectors, matcher logic, or config formats.
 
 ## Pull Request Process
 
@@ -196,25 +212,25 @@ Follow conventional commits:
 
 ```
 feat: add Ruby/Rails detector
-fix: handle missing package.json gracefully
+fix: handle missing go.mod gracefully
 docs: add installation instructions for homebrew
 refactor: simplify matching algorithm
-test: add fixtures for Python monorepos
+test: add analyzer coverage for mixed-language repos
 ```
 
 ### Code Style
 
-- TypeScript strict mode
-- Prettier for formatting
-- ESLint for linting
-- Run `pnpm lint` before committing
+- Use `gofmt` for formatting
+- Keep package boundaries clear (`cmd`, `internal`, `pkg`)
+- Prefer small, focused functions and explicit error handling
+- Run `make lint` before committing
 
 ## Architecture Decisions
 
-### Why Node.js/TypeScript?
-- Most developers have Node.js installed
-- TypeScript provides type safety
-- Easy distribution via npm/npx
+### Why Go?
+- Fast startup and great performance for CLI tools
+- Single static binaries simplify installation and distribution
+- Strong standard library and explicit error handling improve reliability
 
 ### Why local-first?
 - Privacy: Your code never leaves your machine
