@@ -2,21 +2,23 @@ package types
 
 // MCPServer represents an MCP server from the registry
 type MCPServer struct {
-	ID           string       `json:"id"`
-	Name         string       `json:"name"`
-	Slug         string       `json:"slug"`
-	Description  string       `json:"description"`
-	Author       string       `json:"author"`
-	Repository   string       `json:"repository,omitempty"`
-	NPM          string       `json:"npm,omitempty"`
-	PyPI         string       `json:"pypi,omitempty"`
-	Categories   []string     `json:"categories"`
-	Tags         []string     `json:"tags"`
-	Capabilities Capabilities `json:"capabilities"`
-	Compat       Compat       `json:"compatibility"`
-	Quality      Quality      `json:"quality"`
-	Install      Install      `json:"installation"`
-	Source       string       `json:"source"` // Which registry this came from
+	ID                     string       `json:"id"`
+	Name                   string       `json:"name"`
+	Slug                   string       `json:"slug"`
+	Description            string       `json:"description"`
+	Author                 string       `json:"author"`
+	Repository             string       `json:"repository,omitempty"`
+	NPM                    string       `json:"npm,omitempty"`
+	PyPI                   string       `json:"pypi,omitempty"`
+	Categories             []string     `json:"categories"`
+	Tags                   []string     `json:"tags"`
+	Capabilities           Capabilities `json:"capabilities"`
+	Compat                 Compat       `json:"compatibility"`
+	Quality                Quality      `json:"quality"`
+	Install                Install      `json:"installation"`
+	RequiresExplicitSignal bool         `json:"requires_explicit_signal,omitempty"`
+	ExplicitSignals        []string     `json:"explicit_signals,omitempty"`
+	Source                 string       `json:"source"` // Which registry this came from
 }
 
 // Capabilities represents what an MCP server can do

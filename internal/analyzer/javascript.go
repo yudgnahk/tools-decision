@@ -131,7 +131,8 @@ func (d *JavaScriptDetector) Detect(ctx context.Context, projectPath string) (*D
 		"mongodb":            "mongodb",
 		"redis":              "redis",
 		"ioredis":            "redis",
-		"@prisma/client":     "database",
+		"@prisma/client":     "prisma",
+		"prisma":             "prisma",
 		"aws-sdk":            "aws",
 		"@aws-sdk/client-s3": "s3",
 	}

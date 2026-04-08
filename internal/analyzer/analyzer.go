@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/yudgnahk/tools-decision/pkg/types"
 )
@@ -89,7 +90,101 @@ func (a *Analyzer) Analyze(ctx context.Context, projectPath string) (*types.Proj
 	// Sort languages/frameworks by confidence
 	sortByConfidence(result)
 
+	// Apply source-file signals while ignoring noisy directories.
+	applySourceFileSignals(result, absPath)
+
 	return result, nil
+}
+
+func applySourceFileSignals(ctx *types.ProjectContext, projectPath string) {
+	counts := countSourceFiles(projectPath)
+
+	for i := range ctx.Languages {
+		name := strings.ToLower(ctx.Languages[i].Name)
+		count := counts[name]
+		ctx.Languages[i].FilesCount = count
+
+		// If language was inferred from manifests only but has no source files,
+		// reduce confidence to avoid noisy recommendations.
+		if count == 0 {
+			ctx.Languages[i].Confidence = max(0.35, ctx.Languages[i].Confidence-0.25)
+		}
+	}
+
+	sortByConfidence(ctx)
+}
+
+func countSourceFiles(projectPath string) map[string]int {
+	counts := map[string]int{
+		"go":         0,
+		"javascript": 0,
+		"typescript": 0,
+		"python":     0,
+		"rust":       0,
+		"java":       0,
+		"kotlin":     0,
+	}
+
+	_ = filepath.WalkDir(projectPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if d.IsDir() {
+			if shouldIgnoreDir(d.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		ext := strings.ToLower(filepath.Ext(d.Name()))
+		switch ext {
+		case ".go":
+			counts["go"]++
+		case ".js", ".mjs", ".cjs", ".jsx":
+			counts["javascript"]++
+		case ".ts", ".tsx":
+			counts["typescript"]++
+		case ".py":
+			counts["python"]++
+		case ".rs":
+			counts["rust"]++
+		case ".java":
+			counts["java"]++
+		case ".kt", ".kts":
+			counts["kotlin"]++
+		}
+
+		return nil
+	})
+
+	return counts
+}
+
+func shouldIgnoreDir(name string) bool {
+	ignore := map[string]bool{
+		".git":          true,
+		"node_modules":  true,
+		"vendor":        true,
+		"dist":          true,
+		"build":         true,
+		"coverage":      true,
+		".next":         true,
+		".nuxt":         true,
+		".cache":        true,
+		"chromium-data": true,
+		"target":        true,
+		"bin":           true,
+		"obj":           true,
+	}
+	return ignore[name]
+}
+
+func max(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // sortByConfidence sorts languages and frameworks by confidence descending

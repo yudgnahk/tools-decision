@@ -273,7 +273,9 @@ func GetEmbeddedServers() []types.MCPServer {
 				Command: "npx",
 				Args:    []string{"-y", "mcp-server-docker"},
 			},
-			Source: "community",
+			RequiresExplicitSignal: true,
+			ExplicitSignals:        []string{"docker", "container", "containers"},
+			Source:                 "community",
 		},
 		{
 			ID:          "kubernetes",
@@ -300,7 +302,9 @@ func GetEmbeddedServers() []types.MCPServer {
 				Command: "npx",
 				Args:    []string{"-y", "mcp-server-kubernetes"},
 			},
-			Source: "community",
+			RequiresExplicitSignal: true,
+			ExplicitSignals:        []string{"kubernetes", "k8s", "container"},
+			Source:                 "community",
 		},
 		{
 			ID:          "aws",
@@ -332,7 +336,9 @@ func GetEmbeddedServers() []types.MCPServer {
 					{Name: "AWS_REGION", Description: "AWS region", Required: false, Default: "us-east-1"},
 				},
 			},
-			Source: "community",
+			RequiresExplicitSignal: true,
+			ExplicitSignals:        []string{"aws", "s3", "cloud"},
+			Source:                 "community",
 		},
 
 		// === Web & APIs ===
@@ -452,7 +458,9 @@ func GetEmbeddedServers() []types.MCPServer {
 					{Name: "STRIPE_SECRET_KEY", Description: "Stripe secret key", Required: true},
 				},
 			},
-			Source: "community",
+			RequiresExplicitSignal: true,
+			ExplicitSignals:        []string{"stripe", "payment", "payments", "billing", "subscription"},
+			Source:                 "community",
 		},
 
 		// === Communication ===
@@ -484,7 +492,9 @@ func GetEmbeddedServers() []types.MCPServer {
 					{Name: "SLACK_BOT_TOKEN", Description: "Slack bot token", Required: true},
 				},
 			},
-			Source: "official",
+			RequiresExplicitSignal: true,
+			ExplicitSignals:        []string{"slack", "messaging", "notification"},
+			Source:                 "official",
 		},
 
 		// === Memory & Context ===
@@ -604,7 +614,9 @@ func GetEmbeddedServers() []types.MCPServer {
 				Command: "npx",
 				Args:    []string{"-y", "mcp-server-prisma"},
 			},
-			Source: "community",
+			RequiresExplicitSignal: true,
+			ExplicitSignals:        []string{"prisma", "orm", "nextjs", "nestjs", "express"},
+			Source:                 "community",
 		},
 	}
 }

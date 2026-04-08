@@ -76,9 +76,9 @@ func TestMatcher_Match(t *testing.T) {
 			wantMinResults: 1,
 		},
 		{
-			name:           "Empty context returns results based on quality",
+			name:           "Empty context returns only core baseline results",
 			context:        &types.ProjectContext{},
-			wantMinResults: 4,
+			wantMinResults: 1,
 		},
 	}
 
@@ -97,6 +97,81 @@ func TestMatcher_Match(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMatcher_Guardrails(t *testing.T) {
+	m := New()
+
+	servers := []types.MCPServer{
+		{
+			ID:          "stripe",
+			Name:        "Stripe",
+			Slug:        "stripe",
+			Description: "Stripe payment integration",
+			Categories:  []string{"payments", "stripe"},
+			Tags:        []string{"stripe", "billing"},
+			Compat: types.Compat{
+				Languages:  []string{"all"},
+				Frameworks: []string{"all"},
+			},
+			Quality: types.Quality{Score: 0.9, Maintained: true},
+		},
+		{
+			ID:          "prisma",
+			Name:        "Prisma",
+			Slug:        "prisma",
+			Description: "Prisma ORM",
+			Categories:  []string{"database", "orm", "prisma"},
+			Tags:        []string{"prisma", "orm"},
+			Compat: types.Compat{
+				Languages:  []string{"javascript", "typescript"},
+				Frameworks: []string{"nextjs", "nestjs"},
+			},
+			Quality: types.Quality{Score: 0.8, Maintained: true},
+		},
+	}
+
+	t.Run("stripe excluded without explicit payment signals", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Languages: []types.Language{{Name: "javascript", Confidence: 0.9}},
+		}
+		results := m.Match(ctx, servers, 10)
+		for _, r := range results {
+			if r.Server.Slug == "stripe" {
+				t.Fatalf("expected stripe to be excluded without explicit intent")
+			}
+		}
+	})
+
+	t.Run("prisma excluded on language-only match", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Languages: []types.Language{{Name: "javascript", Confidence: 0.95}},
+		}
+		results := m.Match(ctx, servers, 10)
+		for _, r := range results {
+			if r.Server.Slug == "prisma" {
+				t.Fatalf("expected prisma to be excluded without framework/service signals")
+			}
+		}
+	})
+
+	t.Run("prisma included with explicit framework signal", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Languages:  []types.Language{{Name: "javascript", Confidence: 0.95}},
+			Frameworks: []types.Framework{{Name: "nextjs", Confidence: 0.9}},
+		}
+		results := m.Match(ctx, servers, 10)
+		found := false
+		for _, r := range results {
+			if r.Server.Slug == "prisma" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected prisma to be included with explicit framework signal")
+		}
+	})
 }
 
 func TestGetSuggestionsForContext(t *testing.T) {
