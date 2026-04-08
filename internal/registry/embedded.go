@@ -112,6 +112,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService, types.ArchetypeDataProcessing, types.ArchetypeAIContentPipe},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
 			Quality: types.Quality{
 				Stars:      600,
 				Maintained: true,
@@ -142,6 +144,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeDataProcessing, types.ArchetypeCLITool, types.ArchetypeLibrary},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
 			Quality: types.Quality{
 				Stars:      400,
 				Maintained: true,
@@ -169,6 +173,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService, types.ArchetypeDataProcessing},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
 			Quality: types.Quality{
 				Stars:      200,
 				Maintained: true,
@@ -202,6 +208,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService, types.ArchetypeAIContentPipe},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
 			Quality: types.Quality{
 				Stars:      150,
 				Maintained: true,
@@ -232,6 +240,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService, types.ArchetypeAutomationBot, types.ArchetypeAIContentPipe},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
 			Quality: types.Quality{
 				Stars:      100,
 				Maintained: true,
@@ -264,6 +274,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService, types.ArchetypeAutomationBot, types.ArchetypeAIContentPipe},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
 			Quality: types.Quality{
 				Stars:      300,
 				Maintained: true,
@@ -293,6 +305,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor, types.ArchetypeDesktopApp},
 			Quality: types.Quality{
 				Stars:      250,
 				Maintained: true,
@@ -322,6 +336,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService, types.ArchetypeAIContentPipe, types.ArchetypeAutomationBot},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
 			Quality: types.Quality{
 				Stars:      180,
 				Maintained: true,
@@ -358,6 +374,7 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAutomationBot, types.ArchetypeAPIService, types.ArchetypeAIContentPipe},
 			Quality: types.Quality{
 				Stars:      500,
 				Maintained: true,
@@ -385,6 +402,7 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAutomationBot, types.ArchetypeDesktopApp},
 			Quality: types.Quality{
 				Stars:      450,
 				Maintained: true,
@@ -414,6 +432,7 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAIContentPipe, types.ArchetypeAutomationBot, types.ArchetypeAPIService},
 			Quality: types.Quality{
 				Stars:      200,
 				Maintained: true,
@@ -446,6 +465,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor, types.ArchetypeDesktopApp},
 			Quality: types.Quality{
 				Stars:      300,
 				Maintained: true,
@@ -480,6 +501,7 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"all"},
 				Frameworks: []string{"all"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAutomationBot, types.ArchetypeAPIService},
 			Quality: types.Quality{
 				Stars:      350,
 				Maintained: true,
@@ -605,6 +627,8 @@ func GetEmbeddedServers() []types.MCPServer {
 				Languages:  []string{"typescript", "javascript"},
 				Frameworks: []string{"nextjs", "express", "nestjs"},
 			},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor, types.ArchetypeDesktopApp},
 			Quality: types.Quality{
 				Stars:      150,
 				Maintained: true,

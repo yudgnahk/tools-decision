@@ -30,6 +30,7 @@ type DetectorResult struct {
 	Tools      []types.Tool
 	Services   []types.Service
 	Type       types.ProjectType
+	Archetypes []types.ArchetypeSignal
 }
 
 // New creates a new Analyzer with all detectors
@@ -80,6 +81,7 @@ func (a *Analyzer) Analyze(ctx context.Context, projectPath string) (*types.Proj
 		result.Frameworks = append(result.Frameworks, detResult.Frameworks...)
 		result.Tools = append(result.Tools, detResult.Tools...)
 		result.Services = append(result.Services, detResult.Services...)
+		result.Archetypes = append(result.Archetypes, detResult.Archetypes...)
 
 		// Take highest confidence project type
 		if detResult.Type != types.ProjectTypeUnknown {
@@ -92,6 +94,9 @@ func (a *Analyzer) Analyze(ctx context.Context, projectPath string) (*types.Proj
 
 	// Apply source-file signals while ignoring noisy directories.
 	applySourceFileSignals(result, absPath)
+
+	// Derive high-level repository archetypes from combined signals.
+	result.Archetypes = detectArchetypes(result, absPath)
 
 	return result, nil
 }

@@ -337,3 +337,158 @@ func TestContainsString(t *testing.T) {
 		}
 	}
 }
+
+func TestSkillMatcher_ArchetypeGatingForDocumentRepo(t *testing.T) {
+	m := NewSkillMatcher()
+
+	skills := []types.Skill{
+		{
+			ID:          "api-design",
+			Name:        "REST API Design Guide",
+			Slug:        "api-design",
+			Description: "Best practices for API architecture",
+			Category:    types.SkillCategoryArchitecture,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"api"},
+				UseCases:     []string{types.UseCaseAPIDesign},
+			},
+			Quality: types.Quality{Score: 0.9, Maintained: true},
+		},
+		{
+			ID:          "latex-docs",
+			Name:        "LaTeX Documentation Workflow",
+			Slug:        "latex-docs",
+			Description: "Troubleshooting and authoring guidance for LaTeX docs",
+			Category:    types.SkillCategoryDocumentation,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"library"},
+				UseCases:     []string{types.UseCaseDocumentation},
+			},
+			Quality: types.Quality{Score: 0.9, Maintained: true},
+		},
+	}
+
+	ctx := &types.ProjectContext{
+		Archetypes: []types.ArchetypeSignal{
+			{Name: types.ArchetypeDocumentAuthor, Confidence: 0.95},
+		},
+		UseCases: []types.UseCase{{Name: types.UseCaseDocumentation, Confidence: 0.85}},
+	}
+
+	results := m.Match(ctx, skills, nil, 10)
+	if len(results) == 0 {
+		t.Fatalf("expected at least one matched skill")
+	}
+	if results[0].Skill.Slug != "latex-docs" {
+		t.Fatalf("expected documentation skill first, got %s", results[0].Skill.Slug)
+	}
+	for _, r := range results {
+		if r.Skill.Slug == "api-design" {
+			t.Fatalf("expected api-design to be gated out for document archetype")
+		}
+	}
+}
+
+func TestSkillMatcher_GenericSkillPenaltyForStrongArchetype(t *testing.T) {
+	m := NewSkillMatcher()
+
+	skills := []types.Skill{
+		{
+			ID:          "generic-review",
+			Name:        "Generic Review",
+			Slug:        "generic-review",
+			Description: "Generic code review",
+			Category:    types.SkillCategoryReview,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"all"},
+				UseCases:     []string{types.UseCaseCodeReview},
+			},
+			Quality: types.Quality{Score: 0.95, Maintained: true},
+		},
+		{
+			ID:          "latex-authoring-build",
+			Name:        "Document and LaTeX Build Troubleshooting",
+			Slug:        "latex-authoring-build",
+			Description: "LaTeX build troubleshooting",
+			Category:    types.SkillCategoryDocumentation,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"latex"},
+				ProjectTypes: []string{"library"},
+				UseCases:     []string{types.UseCaseDocumentation},
+			},
+			Quality: types.Quality{Score: 0.88, Maintained: true},
+		},
+	}
+
+	ctx := &types.ProjectContext{
+		Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeDocumentAuthor, Confidence: 0.95}},
+		UseCases:   []types.UseCase{{Name: types.UseCaseDocumentation, Confidence: 0.9}},
+	}
+
+	results := m.Match(ctx, skills, nil, 5)
+	if len(results) == 0 {
+		t.Fatalf("expected at least one result")
+	}
+	if results[0].Skill.Slug != "latex-authoring-build" {
+		t.Fatalf("expected latex skill ranked first, got %s", results[0].Skill.Slug)
+	}
+	for _, r := range results {
+		if r.Skill.Slug == "generic-review" {
+			t.Fatalf("expected generic-review to be filtered for document archetype without matching use case")
+		}
+	}
+}
+
+func TestSkillMatcher_ArchetypeSpecificSkillGating(t *testing.T) {
+	m := NewSkillMatcher()
+
+	skills := []types.Skill{
+		{
+			ID:          "browser-automation-scripting",
+			Name:        "Browser Automation Scripting",
+			Slug:        "browser-automation-scripting",
+			Description: "Automation patterns",
+			Category:    types.SkillCategoryTesting,
+			Compat: types.SkillCompat{
+				Languages:    []string{"javascript", "typescript", "python"},
+				Frameworks:   []string{"playwright", "puppeteer", "selenium"},
+				ProjectTypes: []string{"cli", "web_app"},
+				UseCases:     []string{types.UseCaseTesting},
+			},
+			Quality: types.Quality{Score: 0.9, Maintained: true},
+		},
+	}
+
+	t.Run("gated for non-automation repo", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Languages:  []types.Language{{Name: "go", Confidence: 0.95}},
+			UseCases:   []types.UseCase{{Name: types.UseCaseTesting, Confidence: 0.9}},
+			Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeDataProcessing, Confidence: 0.95}},
+		}
+		results := m.Match(ctx, skills, nil, 5)
+		if len(results) != 0 {
+			t.Fatalf("expected no automation skills, got %d", len(results))
+		}
+	})
+
+	t.Run("allowed for automation repo", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Languages:  []types.Language{{Name: "typescript", Confidence: 0.95}},
+			Frameworks: []types.Framework{{Name: "playwright", Confidence: 0.95}},
+			UseCases:   []types.UseCase{{Name: types.UseCaseTesting, Confidence: 0.9}},
+			Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeAutomationBot, Confidence: 0.95}},
+			Type:       types.ProjectTypeCLI,
+		}
+		results := m.Match(ctx, skills, nil, 5)
+		if len(results) == 0 {
+			t.Fatalf("expected automation skill to be included")
+		}
+	})
+}

@@ -229,3 +229,102 @@ func TestGetSuggestionsForContext(t *testing.T) {
 		})
 	}
 }
+
+func TestMatcher_ArchetypeGatingForNonAPIRepos(t *testing.T) {
+	m := New()
+
+	servers := []types.MCPServer{
+		{
+			ID:         "api-gateway",
+			Name:       "API Gateway",
+			Slug:       "api-gateway",
+			Categories: []string{"api", "microservice"},
+			Tags:       []string{"rest", "backend"},
+			Quality:    types.Quality{Score: 0.9, Maintained: true},
+		},
+		{
+			ID:         "postgres",
+			Name:       "PostgreSQL",
+			Slug:       "postgres",
+			Categories: []string{"database", "postgresql"},
+			Tags:       []string{"sql"},
+			Quality:    types.Quality{Score: 0.85, Maintained: true},
+		},
+		{
+			ID:         "filesystem",
+			Name:       "Filesystem",
+			Slug:       "filesystem",
+			Categories: []string{"core", "filesystem"},
+			Tags:       []string{"files"},
+			Quality:    types.Quality{Score: 0.95, Maintained: true},
+		},
+	}
+
+	ctx := &types.ProjectContext{
+		Archetypes: []types.ArchetypeSignal{
+			{Name: types.ArchetypeDocumentAuthor, Confidence: 0.95},
+		},
+	}
+
+	results := m.Match(ctx, servers, 10)
+	for _, r := range results {
+		if r.Server.Slug == "api-gateway" || r.Server.Slug == "postgres" {
+			t.Fatalf("expected non-document servers to be gated out, got %s", r.Server.Slug)
+		}
+	}
+}
+
+func TestMatcher_ServerArchetypeMetadata(t *testing.T) {
+	m := New()
+
+	servers := []types.MCPServer{
+		{
+			ID:                    "postgres",
+			Name:                  "PostgreSQL",
+			Slug:                  "postgres",
+			Categories:            []string{"database", "postgresql"},
+			Tags:                  []string{"sql", "postgres"},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAPIService},
+			ExcludedArchetypes:    []types.Archetype{types.ArchetypeDocumentAuthor},
+			Quality:               types.Quality{Score: 0.9, Maintained: true},
+		},
+		{
+			ID:         "filesystem",
+			Name:       "Filesystem",
+			Slug:       "filesystem",
+			Categories: []string{"core", "filesystem"},
+			Tags:       []string{"files"},
+			Quality:    types.Quality{Score: 0.95, Maintained: true},
+		},
+	}
+
+	t.Run("excluded archetype blocks recommendation without explicit signal", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeDocumentAuthor, Confidence: 0.95}},
+		}
+		results := m.Match(ctx, servers, 10)
+		for _, r := range results {
+			if r.Server.Slug == "postgres" {
+				t.Fatalf("expected postgres to be blocked by excluded archetype")
+			}
+		}
+	})
+
+	t.Run("explicit service signal can bypass excluded archetype gate", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeDocumentAuthor, Confidence: 0.95}},
+			Services:   []types.Service{{Name: "postgresql", Confidence: 0.95}},
+		}
+		results := m.Match(ctx, servers, 10)
+		foundPostgres := false
+		for _, r := range results {
+			if r.Server.Slug == "postgres" {
+				foundPostgres = true
+				break
+			}
+		}
+		if !foundPostgres {
+			t.Fatalf("expected postgres to be included with explicit service signal")
+		}
+	})
+}

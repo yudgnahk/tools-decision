@@ -18,6 +18,8 @@ type MCPServer struct {
 	Install                Install      `json:"installation"`
 	RequiresExplicitSignal bool         `json:"requires_explicit_signal,omitempty"`
 	ExplicitSignals        []string     `json:"explicit_signals,omitempty"`
+	RecommendedArchetypes  []Archetype  `json:"recommended_archetypes,omitempty"`
+	ExcludedArchetypes     []Archetype  `json:"excluded_archetypes,omitempty"`
 	Source                 string       `json:"source"` // Which registry this came from
 }
 

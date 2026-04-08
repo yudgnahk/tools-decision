@@ -63,6 +63,10 @@ func (m *SkillMatcher) Match(
 
 	for _, skill := range skills {
 		score, reasons, matchedOn := m.score(ctx, skill, serverIDs)
+		score, eligible := m.applyArchetypePolicy(ctx, skill, score)
+		if !eligible {
+			continue
+		}
 
 		// Higher threshold for skills (0.15) since they should be more targeted
 		if score > 0.15 {
@@ -86,6 +90,250 @@ func (m *SkillMatcher) Match(
 	}
 
 	return recommendations
+}
+
+func (m *SkillMatcher) applyArchetypePolicy(
+	ctx *types.ProjectContext,
+	skill types.Skill,
+	score float64,
+) (float64, bool) {
+	if len(ctx.Archetypes) == 0 {
+		return score, true
+	}
+
+	apiConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAPIService)
+	docConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDocumentAuthor)
+	desktopConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDesktopApp)
+	dataConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDataProcessing)
+	autoConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAutomationBot)
+	aiPipeConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAIContentPipe)
+
+	hasAutomationSignal := hasFrameworkOrService(ctx, "playwright", "puppeteer", "selenium")
+	hasDataSignal := hasFrameworkOrService(ctx, "pandas", "openpyxl", "excelize")
+	hasAIPipelineSignal := hasFrameworkOrService(ctx, "openai", "anthropic", "langchain", "moviepy", "pydub", "ffmpeg")
+
+	requiresAPI := containsString(skill.Compat.UseCases, types.UseCaseAPIDesign) ||
+		containsString(skill.Compat.UseCases, types.UseCaseDatabaseDesign) ||
+		containsString(skill.Compat.ProjectTypes, string(types.ProjectTypeAPI))
+
+	explicitAPIUseCase := hasProjectUseCase(ctx.UseCases, types.UseCaseAPIDesign, 0.8) ||
+		hasProjectUseCase(ctx.UseCases, types.UseCaseDatabaseDesign, 0.8)
+
+	if requiresAPI && apiConf < 0.65 && !explicitAPIUseCase {
+		return 0, false
+	}
+
+	slug := strings.ToLower(skill.Slug)
+	if strings.Contains(slug, "browser-automation") && autoConf < 0.6 && !hasAutomationSignal {
+		return 0, false
+	}
+	if strings.Contains(slug, "etl-data-quality") && dataConf < 0.6 && !hasDataSignal {
+		return 0, false
+	}
+	if strings.Contains(slug, "ai-media-pipeline") && aiPipeConf < 0.6 && !hasAIPipelineSignal {
+		return 0, false
+	}
+	if strings.Contains(slug, "latex") && docConf < 0.6 && !hasProjectUseCase(ctx.UseCases, types.UseCaseDocumentation, 0.75) {
+		return 0, false
+	}
+	if (strings.Contains(slug, "rust-desktop") || strings.Contains(slug, "gui-event-loop")) && desktopConf < 0.6 {
+		score *= 0.6
+	}
+	if strings.Contains(slug, "etl-data-quality") && dataConf < 0.6 {
+		score *= 0.75
+	}
+	if strings.Contains(slug, "ai-media-pipeline") && aiPipeConf < 0.6 {
+		score *= 0.6
+	}
+
+	if docConf >= 0.7 && isBackendOrInfraSkill(skill) && !explicitAPIUseCase {
+		return 0, false
+	}
+
+	if ctx.Type != types.ProjectTypeUnknown && len(skill.Compat.ProjectTypes) > 0 {
+		if !containsString(skill.Compat.ProjectTypes, "all") && !containsString(skill.Compat.ProjectTypes, string(ctx.Type)) {
+			score *= 0.65
+		}
+	}
+
+	if isGenericSkill(skill) {
+		if docConf >= 0.7 || desktopConf >= 0.7 || dataConf >= 0.7 || autoConf >= 0.7 || aiPipeConf >= 0.7 {
+			if !hasUseCaseIntersection(ctx.UseCases, skill.Compat.UseCases, 0.75) {
+				return 0, false
+			}
+		}
+		if docConf >= 0.7 || desktopConf >= 0.7 || dataConf >= 0.7 || autoConf >= 0.7 || aiPipeConf >= 0.7 {
+			score *= 0.45
+		} else if apiConf < 0.6 {
+			score *= 0.7
+		}
+	}
+
+	if desktopConf >= 0.7 && isBackendOrInfraSkill(skill) && !explicitAPIUseCase {
+		score *= 0.6
+	}
+
+	if dataConf >= 0.7 && isBackendOrInfraSkill(skill) && !explicitAPIUseCase {
+		score *= 0.7
+	}
+
+	if apiConf >= 0.7 && containsString(skill.Compat.ProjectTypes, string(types.ProjectTypeAPI)) {
+		score *= 1.12
+	}
+
+	if docConf >= 0.7 && (skill.Category == types.SkillCategoryDocumentation || hasProjectType(skill.Compat.ProjectTypes, string(types.ProjectTypeLibrary))) {
+		score *= 1.2
+	}
+	if docConf >= 0.7 && strings.Contains(slug, "latex") {
+		score *= 1.35
+	}
+
+	if autoConf >= 0.7 && isAutomationSkill(skill) {
+		score *= 1.15
+	}
+	if autoConf >= 0.7 && strings.Contains(slug, "browser-automation") {
+		score *= 1.2
+	}
+
+	if aiPipeConf >= 0.7 && isAIPipelineSkill(skill) {
+		score *= 1.15
+	}
+	if aiPipeConf >= 0.7 && strings.Contains(slug, "ai-media-pipeline") {
+		score *= 1.25
+	}
+	if dataConf >= 0.7 && strings.Contains(slug, "etl-data-quality") {
+		score *= 1.25
+	}
+
+	if strings.Contains(slug, "go-debug") && hasLanguage(ctx, "go", 0.9) {
+		score *= 1.15
+	}
+	if strings.Contains(slug, "python-debug") && hasLanguage(ctx, "python", 0.9) {
+		score *= 1.15
+	}
+
+	if score > 1.0 {
+		score = 1.0
+	}
+
+	return score, true
+}
+
+func hasProjectUseCase(useCases []types.UseCase, name string, minConfidence float64) bool {
+	for _, uc := range useCases {
+		if strings.EqualFold(uc.Name, name) && uc.Confidence >= minConfidence {
+			return true
+		}
+	}
+	return false
+}
+
+func hasProjectType(projectTypes []string, p string) bool {
+	for _, pt := range projectTypes {
+		if strings.EqualFold(pt, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func skillTerms(skill types.Skill) string {
+	return strings.ToLower(skill.Slug + " " + skill.Name + " " + skill.Description + " " + skill.Category + " " + strings.Join(skill.Compat.UseCases, " "))
+}
+
+func isBackendOrInfraSkill(skill types.Skill) bool {
+	if containsString(skill.Compat.UseCases, types.UseCaseAPIDesign) || containsString(skill.Compat.UseCases, types.UseCaseDatabaseDesign) {
+		return true
+	}
+	if containsString(skill.Compat.ProjectTypes, string(types.ProjectTypeAPI)) {
+		return true
+	}
+	terms := skillTerms(skill)
+	for _, token := range []string{"api", "rest", "graphql", "grpc", "database", "sql", "microservice", "kubernetes", "docker", "devops"} {
+		if strings.Contains(terms, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func isAutomationSkill(skill types.Skill) bool {
+	terms := skillTerms(skill)
+	for _, token := range []string{"automation", "playwright", "puppeteer", "selenium", "browser", "e2e"} {
+		if strings.Contains(terms, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func isAIPipelineSkill(skill types.Skill) bool {
+	terms := skillTerms(skill)
+	for _, token := range []string{"ai", "llm", "openai", "anthropic", "media", "audio", "video", "pipeline", "ffmpeg"} {
+		if strings.Contains(terms, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func isGenericSkill(skill types.Skill) bool {
+	return supportsAllCompat(skill.Compat.Languages) && supportsAllCompat(skill.Compat.Frameworks) && supportsAllCompat(skill.Compat.ProjectTypes)
+}
+
+func supportsAllCompat(values []string) bool {
+	for _, v := range values {
+		if strings.EqualFold(v, "all") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasUseCaseIntersection(projectUseCases []types.UseCase, skillUseCases []string, minConfidence float64) bool {
+	if len(projectUseCases) == 0 || len(skillUseCases) == 0 {
+		return false
+	}
+	skillSet := make(map[string]bool, len(skillUseCases))
+	for _, s := range skillUseCases {
+		skillSet[strings.ToLower(s)] = true
+	}
+	for _, uc := range projectUseCases {
+		if uc.Confidence < minConfidence {
+			continue
+		}
+		if skillSet[strings.ToLower(uc.Name)] {
+			return true
+		}
+	}
+	return false
+}
+
+func hasFrameworkOrService(ctx *types.ProjectContext, names ...string) bool {
+	for _, fw := range ctx.Frameworks {
+		for _, n := range names {
+			if strings.EqualFold(fw.Name, n) {
+				return true
+			}
+		}
+	}
+	for _, svc := range ctx.Services {
+		for _, n := range names {
+			if strings.EqualFold(svc.Name, n) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasLanguage(ctx *types.ProjectContext, language string, minConfidence float64) bool {
+	for _, l := range ctx.Languages {
+		if strings.EqualFold(l.Name, language) && l.Confidence >= minConfidence {
+			return true
+		}
+	}
+	return false
 }
 
 // score calculates the match score for a skill

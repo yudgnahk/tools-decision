@@ -1527,5 +1527,221 @@ $ARGUMENTS`,
 			},
 			Source: "official",
 		},
+		{
+			ID:          "rust-desktop-debug",
+			Name:        "Rust Desktop Debugging",
+			Slug:        "rust-desktop-debug",
+			Description: "Debugging workflow for Rust desktop applications",
+			Author:      "tools-decision",
+			Category:    types.SkillCategoryDebugging,
+			Instructions: `## Rust Desktop Debugging
+
+Use this workflow when a Rust desktop app crashes, freezes, leaks resources, or has platform-specific behavior.
+
+1. Reproduce with a minimal sequence and capture OS, Rust toolchain, and app version.
+2. Run with debug symbols and backtraces enabled; keep logs structured by UI action.
+3. Check common causes: event loop blocking, cross-thread UI access, async runtime starvation, and panic propagation.
+4. Inspect window lifecycle events (create/show/focus/close) and plugin startup order.
+5. Validate platform-specific integration points (macOS permissions, Linux GTK libs, Windows path/encoding).
+6. Add a regression test or startup smoke check for the fixed path.
+
+$ARGUMENTS`,
+			Variables: []types.Variable{
+				{Name: "ARGUMENTS", Description: "Crash details, logs, or reproduction steps", Required: false},
+			},
+			RequiredTools:    []string{"filesystem", "git"},
+			RecommendedTools: []string{"github"},
+			Compat: types.SkillCompat{
+				Languages:    []string{"rust"},
+				Frameworks:   []string{"tauri", "dioxus", "egui", "iced", "gtk"},
+				ProjectTypes: []string{"desktop"},
+				UseCases:     []string{types.UseCaseDebugging, types.UseCasePerformance},
+			},
+			Quality: types.Quality{
+				Maintained: true,
+				Score:      0.9,
+			},
+			Source: "official",
+		},
+		{
+			ID:          "gui-event-loop-troubleshooting",
+			Name:        "GUI Event Loop Troubleshooting",
+			Slug:        "gui-event-loop-troubleshooting",
+			Description: "Diagnose UI freezes, deadlocks, and rendering stalls",
+			Author:      "tools-decision",
+			Category:    types.SkillCategoryPerformance,
+			Instructions: `## GUI Event Loop Troubleshooting
+
+Use this guide when desktop UI is unresponsive, flickers, or reacts slowly.
+
+1. Measure frame drops and main-thread blocking durations.
+2. Separate rendering, IO, and long CPU work; move heavy work off the main loop.
+3. Confirm state updates are batched and avoid recursive event dispatch.
+4. Check locks around shared state and reduce lock scope to prevent deadlocks.
+5. Verify timer/animation callbacks are cancelled on navigation or window close.
+6. Capture before/after metrics for latency and responsiveness.
+
+$ARGUMENTS`,
+			Variables: []types.Variable{
+				{Name: "ARGUMENTS", Description: "UI symptom and platform details", Required: false},
+			},
+			RequiredTools:    []string{"filesystem"},
+			RecommendedTools: []string{"git"},
+			Compat: types.SkillCompat{
+				Languages:    []string{"rust", "javascript", "typescript", "python"},
+				Frameworks:   []string{"tauri", "dioxus", "egui", "iced", "electron", "gtk"},
+				ProjectTypes: []string{"desktop"},
+				UseCases:     []string{types.UseCaseDebugging, types.UseCasePerformance},
+			},
+			Quality: types.Quality{
+				Maintained: true,
+				Score:      0.88,
+			},
+			Source: "official",
+		},
+		{
+			ID:          "browser-automation-scripting",
+			Name:        "Browser Automation Scripting",
+			Slug:        "browser-automation-scripting",
+			Description: "Reliable Playwright/Puppeteer/Selenium automation patterns",
+			Author:      "tools-decision",
+			Category:    types.SkillCategoryTesting,
+			Instructions: `## Browser Automation Scripting
+
+Use this workflow for browser bots, scripted interactions, and flaky automation runs.
+
+1. Prefer deterministic selectors (data-testid) over text or deep CSS paths.
+2. Replace sleeps with explicit waits for network idle, visible elements, and stable state.
+3. Isolate authentication/session setup from test intent.
+4. Capture trace/video/screenshots on failure for reproducible debugging.
+5. Add retry only for known transient steps, never as a blanket fallback.
+6. Keep scripts idempotent and safe for rerun in CI.
+
+$ARGUMENTS`,
+			Variables: []types.Variable{
+				{Name: "ARGUMENTS", Description: "Automation task or flaky scenario", Required: false},
+			},
+			RequiredTools:    []string{"filesystem"},
+			RecommendedTools: []string{"github", "fetch"},
+			Compat: types.SkillCompat{
+				Languages:    []string{"javascript", "typescript", "python"},
+				Frameworks:   []string{"playwright", "puppeteer", "selenium"},
+				ProjectTypes: []string{"cli", "library", "web_app"},
+				UseCases:     []string{types.UseCaseTesting, types.UseCaseDebugging},
+			},
+			Quality: types.Quality{
+				Maintained: true,
+				Score:      0.9,
+			},
+			Source: "official",
+		},
+		{
+			ID:          "etl-data-quality",
+			Name:        "Data Processing and ETL Quality",
+			Slug:        "etl-data-quality",
+			Description: "Validation, schema checks, and reliability for ETL pipelines",
+			Author:      "tools-decision",
+			Category:    types.SkillCategoryBestPractices,
+			Instructions: `## Data Processing and ETL Quality
+
+Use this checklist for CSV/Excel/dataframe transformations and batch pipelines.
+
+1. Define input schema contracts and reject malformed rows early.
+2. Track row-level quality metrics: invalid count, deduplicated count, and null rates.
+3. Keep transformations pure and stage outputs in clear intermediate steps.
+4. Ensure idempotency (safe reruns) and checkpoint progress for long jobs.
+5. Validate output schema and key aggregates before publish.
+6. Log dataset version, run ID, and source file hashes for traceability.
+
+$ARGUMENTS`,
+			Variables: []types.Variable{
+				{Name: "ARGUMENTS", Description: "Dataset and transformation context", Required: false},
+			},
+			RequiredTools:    []string{"filesystem"},
+			RecommendedTools: []string{"git"},
+			Compat: types.SkillCompat{
+				Languages:    []string{"python", "go"},
+				Frameworks:   []string{"pandas", "openpyxl", "excelize"},
+				ProjectTypes: []string{"cli", "library"},
+				UseCases:     []string{types.UseCaseTesting, types.UseCasePerformance},
+			},
+			Quality: types.Quality{
+				Maintained: true,
+				Score:      0.9,
+			},
+			Source: "official",
+		},
+		{
+			ID:          "python-ai-media-pipeline",
+			Name:        "Python AI/Media Pipeline Reliability",
+			Slug:        "python-ai-media-pipeline",
+			Description: "Stabilize content generation pipelines using AI + media processing",
+			Author:      "tools-decision",
+			Category:    types.SkillCategoryDebugging,
+			Instructions: `## Python AI/Media Pipeline Reliability
+
+Use this guide when AI + audio/video pipelines are slow, brittle, or inconsistent.
+
+1. Split pipeline into stages (prompting, generation, post-process, render, publish).
+2. Add deterministic run IDs and persist intermediate artifacts per stage.
+3. Guard external API calls with timeout, retry budget, and fallback model strategy.
+4. Validate media assets (duration, codec, sample rate, dimensions) before merge.
+5. Use bounded queues/concurrency to avoid memory spikes during render.
+6. Add stage-level health metrics and fail-fast on corrupted artifacts.
+
+$ARGUMENTS`,
+			Variables: []types.Variable{
+				{Name: "ARGUMENTS", Description: "Pipeline stage failures or quality issues", Required: false},
+			},
+			RequiredTools:    []string{"filesystem", "git"},
+			RecommendedTools: []string{"fetch", "github"},
+			Compat: types.SkillCompat{
+				Languages:    []string{"python"},
+				Frameworks:   []string{"langchain", "moviepy", "pydub", "ffmpeg", "openai"},
+				ProjectTypes: []string{"cli", "library"},
+				UseCases:     []string{types.UseCaseDebugging, types.UseCasePerformance, types.UseCaseDevOps},
+			},
+			Quality: types.Quality{
+				Maintained: true,
+				Score:      0.9,
+			},
+			Source: "official",
+		},
+		{
+			ID:          "latex-authoring-build",
+			Name:        "Document and LaTeX Build Troubleshooting",
+			Slug:        "latex-authoring-build",
+			Description: "Authoring and build diagnostics for LaTeX-based repositories",
+			Author:      "tools-decision",
+			Category:    types.SkillCategoryDocumentation,
+			Instructions: `## Document and LaTeX Build Troubleshooting
+
+Use this checklist for LaTeX projects with compile failures, bad references, or layout regressions.
+
+1. Start from a clean build directory and capture full compiler logs.
+2. Resolve errors in order: missing packages, undefined control sequence, citation/index issues.
+3. Check include graph (\\input, \\include) and relative path correctness.
+4. Verify bibliography toolchain (bibtex/biber) and rerun pass order.
+5. Keep reusable macros/styles centralized and avoid duplicate command definitions.
+6. Add a CI smoke build to catch future regressions early.
+
+$ARGUMENTS`,
+			Variables: []types.Variable{
+				{Name: "ARGUMENTS", Description: "Compile error logs or document issue", Required: false},
+			},
+			RequiredTools:    []string{"filesystem"},
+			RecommendedTools: []string{"git", "github"},
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"latex"},
+				ProjectTypes: []string{"library", "cli"},
+				UseCases:     []string{types.UseCaseDocumentation, types.UseCaseDebugging},
+			},
+			Quality: types.Quality{
+				Maintained: true,
+				Score:      0.89,
+			},
+			Source: "official",
+		},
 	}
 }

@@ -67,6 +67,10 @@ func (m *Matcher) Match(ctx *types.ProjectContext, servers []types.MCPServer, li
 
 	for _, server := range servers {
 		score, reasons, matchedOn, breakdown := m.score(ctx, server)
+		score, eligible := m.applyArchetypePolicy(ctx, server, score, breakdown)
+		if !eligible {
+			continue
+		}
 
 		// Guardrail: do not recommend quality-only matches, except core baseline tools.
 		if !breakdown.LanguageMatched && !breakdown.FrameworkMatched && !breakdown.ServiceMatched {
@@ -258,6 +262,185 @@ func isGenericServiceSignal(name string) bool {
 	default:
 		return false
 	}
+}
+
+func (m *Matcher) applyArchetypePolicy(
+	ctx *types.ProjectContext,
+	server types.MCPServer,
+	score float64,
+	b scoreBreakdown,
+) (float64, bool) {
+	score, metadataEligible := applyServerArchetypeMetadata(ctx, server, score, b)
+	if !metadataEligible {
+		return 0, false
+	}
+
+	if len(ctx.Archetypes) == 0 {
+		return score, true
+	}
+
+	apiConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAPIService)
+	docConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDocumentAuthor)
+	desktopConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDesktopApp)
+	dataConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDataProcessing)
+	autoConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAutomationBot)
+	aiPipeConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAIContentPipe)
+
+	explicitDataSignal := hasAnyMatchedSignals(b.MatchedServices, "postgresql", "postgres", "mysql", "mongodb", "redis", "sqlite", "database", "prisma")
+	explicitAPIIntent := b.FrameworkMatched || b.ServiceMatched
+
+	if isDatabaseHeavyServer(server) && apiConf < 0.65 && !explicitDataSignal {
+		return 0, false
+	}
+
+	if docConf >= 0.7 {
+		if isAPIServer(server) && !explicitAPIIntent {
+			return 0, false
+		}
+		if isDatabaseHeavyServer(server) && !explicitDataSignal {
+			return score * 0.25, true
+		}
+	}
+
+	if desktopConf >= 0.7 && isBackendInfraServer(server) && !explicitAPIIntent {
+		score *= 0.55
+	}
+
+	if dataConf >= 0.7 && isBackendInfraServer(server) && !explicitDataSignal {
+		score *= 0.65
+	}
+
+	if autoConf >= 0.7 && isAutomationServer(server) {
+		score *= 1.2
+	}
+
+	if aiPipeConf >= 0.7 && isAIMediaServer(server) {
+		score *= 1.15
+	}
+
+	if score > 1.0 {
+		score = 1.0
+	}
+
+	return score, true
+}
+
+func applyServerArchetypeMetadata(
+	ctx *types.ProjectContext,
+	server types.MCPServer,
+	score float64,
+	b scoreBreakdown,
+) (float64, bool) {
+	if len(ctx.Archetypes) == 0 {
+		return score, true
+	}
+
+	explicitIntent := b.FrameworkMatched || b.ServiceMatched
+
+	if len(server.ExcludedArchetypes) > 0 {
+		for _, excluded := range server.ExcludedArchetypes {
+			if archetypeConfidence(ctx.Archetypes, excluded) >= 0.7 {
+				if !explicitIntent {
+					return 0, false
+				}
+				score *= 0.5
+				break
+			}
+		}
+	}
+
+	if len(server.RecommendedArchetypes) > 0 {
+		hasRecommended := false
+		for _, recommended := range server.RecommendedArchetypes {
+			if archetypeConfidence(ctx.Archetypes, recommended) >= 0.6 {
+				hasRecommended = true
+				break
+			}
+		}
+
+		if hasRecommended {
+			score *= 1.12
+		} else {
+			if !explicitIntent {
+				return 0, false
+			}
+			score *= 0.75
+		}
+	}
+
+	if score > 1.0 {
+		score = 1.0
+	}
+
+	return score, true
+}
+
+func archetypeConfidence(archetypes []types.ArchetypeSignal, target types.Archetype) float64 {
+	for _, a := range archetypes {
+		if a.Name == target {
+			return a.Confidence
+		}
+	}
+	return 0
+}
+
+func hasAnyMatchedSignals(values []string, keys ...string) bool {
+	set := make(map[string]bool, len(values))
+	for _, v := range values {
+		set[strings.ToLower(v)] = true
+	}
+	for _, k := range keys {
+		if set[strings.ToLower(k)] {
+			return true
+		}
+	}
+	return false
+}
+
+func serverTerms(server types.MCPServer) map[string]bool {
+	terms := make(map[string]bool, len(server.Categories)+len(server.Tags)+1)
+	terms[strings.ToLower(server.Slug)] = true
+	for _, c := range server.Categories {
+		terms[strings.ToLower(c)] = true
+	}
+	for _, t := range server.Tags {
+		terms[strings.ToLower(t)] = true
+	}
+	return terms
+}
+
+func hasAnyTerm(terms map[string]bool, keys ...string) bool {
+	for _, k := range keys {
+		if terms[strings.ToLower(k)] {
+			return true
+		}
+	}
+	return false
+}
+
+func isDatabaseHeavyServer(server types.MCPServer) bool {
+	terms := serverTerms(server)
+	return hasAnyTerm(terms, "database", "db", "sql", "postgres", "postgresql", "mysql", "mongodb", "redis", "orm", "prisma", "sqlite")
+}
+
+func isAPIServer(server types.MCPServer) bool {
+	terms := serverTerms(server)
+	return hasAnyTerm(terms, "api", "rest", "graphql", "grpc", "microservice", "backend", "service")
+}
+
+func isBackendInfraServer(server types.MCPServer) bool {
+	terms := serverTerms(server)
+	return hasAnyTerm(terms, "api", "database", "db", "sql", "kubernetes", "docker", "aws", "gcp", "azure", "microservice", "backend", "cloud")
+}
+
+func isAutomationServer(server types.MCPServer) bool {
+	terms := serverTerms(server)
+	return hasAnyTerm(terms, "automation", "browser", "playwright", "puppeteer", "selenium")
+}
+
+func isAIMediaServer(server types.MCPServer) bool {
+	terms := serverTerms(server)
+	return hasAnyTerm(terms, "openai", "anthropic", "ai", "llm", "media", "ffmpeg", "audio", "video")
 }
 
 // languageScore calculates the language match score

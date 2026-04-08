@@ -114,6 +114,16 @@ func (d *PythonDetector) Detect(ctx context.Context, projectPath string) (*Detec
 		"redis":           "redis",
 		"sqlalchemy":      "database",
 		"boto3":           "aws",
+		"openai":          "openai",
+		"anthropic":       "anthropic",
+		"langchain":       "langchain",
+		"playwright":      "playwright",
+		"selenium":        "selenium",
+		"pandas":          "pandas",
+		"openpyxl":        "openpyxl",
+		"moviepy":         "moviepy",
+		"pydub":           "pydub",
+		"ffmpeg-python":   "ffmpeg",
 	}
 
 	for dep, service := range serviceMap {
