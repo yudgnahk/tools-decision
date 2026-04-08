@@ -80,7 +80,83 @@ func (a *IntentAnalyzer) AnalyzeIdea(idea string) *types.ProjectContext {
 		})
 	}
 
+	// Detect use cases from the idea
+	ctx.UseCases = detectUseCases(idea)
+
 	return ctx
+}
+
+// detectUseCases analyzes text to detect intended use cases
+func detectUseCases(text string) []types.UseCase {
+	useCasePatterns := []struct {
+		UseCase    string
+		Keywords   []string
+		Confidence float64
+	}{
+		// Debugging use cases
+		{types.UseCaseDebugging, []string{"debug", "fix", "error", "bug", "issue", "problem", "crash", "failing"}, 0.9},
+		{types.UseCaseDebugging, []string{"troubleshoot", "investigate", "diagnose"}, 0.85},
+
+		// Code review use cases
+		{types.UseCaseCodeReview, []string{"review", "audit", "check", "inspect"}, 0.85},
+		{types.UseCaseCodeReview, []string{"pr review", "pull request", "code quality"}, 0.9},
+
+		// Architecture use cases
+		{types.UseCaseArchitecture, []string{"design", "architect", "structure", "organize"}, 0.85},
+		{types.UseCaseArchitecture, []string{"microservice", "monolith", "modular"}, 0.9},
+
+		// Testing use cases
+		{types.UseCaseTesting, []string{"test", "testing", "coverage", "tdd"}, 0.9},
+		{types.UseCaseTesting, []string{"unit test", "integration test", "e2e"}, 0.95},
+
+		// DevOps use cases
+		{types.UseCaseDevOps, []string{"deploy", "ci", "cd", "pipeline", "devops"}, 0.9},
+		{types.UseCaseDevOps, []string{"kubernetes", "docker", "container", "infrastructure"}, 0.85},
+
+		// Performance use cases
+		{types.UseCasePerformance, []string{"performance", "optimize", "speed", "slow", "fast"}, 0.85},
+		{types.UseCasePerformance, []string{"profiling", "benchmark", "latency"}, 0.9},
+
+		// Security use cases
+		{types.UseCaseSecurity, []string{"security", "secure", "vulnerability", "auth"}, 0.9},
+		{types.UseCaseSecurity, []string{"penetration", "exploit", "hack"}, 0.85},
+
+		// Refactoring use cases
+		{types.UseCaseRefactoring, []string{"refactor", "cleanup", "improve", "modernize"}, 0.85},
+		{types.UseCaseRefactoring, []string{"rewrite", "restructure", "simplify"}, 0.8},
+
+		// API Design use cases
+		{types.UseCaseAPIDesign, []string{"api", "rest", "graphql", "endpoint"}, 0.85},
+		{types.UseCaseAPIDesign, []string{"openapi", "swagger", "grpc"}, 0.9},
+
+		// Database use cases
+		{types.UseCaseDatabaseDesign, []string{"database", "schema", "migration"}, 0.85},
+		{types.UseCaseDatabaseDesign, []string{"query", "sql", "orm"}, 0.8},
+
+		// Documentation use cases
+		{types.UseCaseDocumentation, []string{"document", "documentation", "readme", "docs"}, 0.9},
+		{types.UseCaseDocumentation, []string{"comment", "explain", "describe"}, 0.75},
+	}
+
+	useCaseScores := make(map[string]float64)
+
+	for _, pattern := range useCasePatterns {
+		if matchesAny(text, pattern.Keywords) {
+			if pattern.Confidence > useCaseScores[pattern.UseCase] {
+				useCaseScores[pattern.UseCase] = pattern.Confidence
+			}
+		}
+	}
+
+	var useCases []types.UseCase
+	for uc, score := range useCaseScores {
+		useCases = append(useCases, types.UseCase{
+			Name:       uc,
+			Confidence: score,
+		})
+	}
+
+	return useCases
 }
 
 // matchesAny checks if the text contains any of the keywords

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/yudgnahk/tools-decision/pkg/types"
@@ -130,52 +131,109 @@ type Fetcher interface {
 	Fetch(ctx context.Context) ([]types.MCPServer, error)
 }
 
+// SkillFetcher is the interface for fetching skills
+type SkillFetcher interface {
+	Name() string
+	FetchSkills(ctx context.Context) ([]types.Skill, error)
+}
+
 // NewRegistry creates a new registry manager
 func NewRegistry(cache *Cache) *Registry {
 	return &Registry{
-		cache:    cache,
+		cache: cache,
 		fetchers: []Fetcher{
-			// Add fetchers here
-			// NewOfficialFetcher(),
-			// NewSmitheryFetcher(),
-			// NewGlamaFetcher(),
+			NewSmitheryFetcher(),
+			// NewGlamaFetcher(), // Uncomment when API is confirmed
 		},
+	}
+}
+
+// NewRegistryWithFetchers creates a registry with custom fetchers
+func NewRegistryWithFetchers(cache *Cache, fetchers []Fetcher) *Registry {
+	return &Registry{
+		cache:    cache,
+		fetchers: fetchers,
 	}
 }
 
 // GetServers returns all MCP servers, refreshing cache if needed
 func (r *Registry) GetServers(ctx context.Context, forceRefresh bool) ([]types.MCPServer, error) {
 	if !forceRefresh && !r.cache.NeedsRefresh() {
-		return r.cache.GetServers(), nil
+		servers := r.cache.GetServers()
+		if len(servers) > 0 {
+			return servers, nil
+		}
 	}
 
-	// Fetch from all sources
-	var allServers []types.MCPServer
+	// Start with embedded servers as base
+	allServers := GetEmbeddedServers()
+
+	// Fetch from all external sources
+	var fetchErrors []string
 	for _, fetcher := range r.fetchers {
 		servers, err := fetcher.Fetch(ctx)
 		if err != nil {
-			// Log warning but continue with other fetchers
+			fetchErrors = append(fetchErrors, fmt.Sprintf("%s: %v", fetcher.Name(), err))
 			continue
 		}
 		allServers = append(allServers, servers...)
 	}
 
-	// Deduplicate by ID
+	// Deduplicate by slug (prefer embedded/official over external)
 	seen := make(map[string]bool)
 	var unique []types.MCPServer
 	for _, server := range allServers {
-		if !seen[server.ID] {
-			seen[server.ID] = true
+		key := server.Slug
+		if !seen[key] {
+			seen[key] = true
 			unique = append(unique, server)
 		}
 	}
 
-	// Update cache
+	// Update cache even if some fetchers failed
 	if err := r.cache.UpdateServers(unique); err != nil {
 		return nil, fmt.Errorf("failed to update cache: %w", err)
 	}
 
 	return unique, nil
+}
+
+// FetchResult represents the result of fetching from a source
+type FetchResult struct {
+	Source  string
+	Count   int
+	Error   error
+	Servers []types.MCPServer
+}
+
+// FetchAll fetches from all sources and returns detailed results
+func (r *Registry) FetchAll(ctx context.Context) ([]FetchResult, error) {
+	var results []FetchResult
+
+	// Embedded servers
+	embedded := GetEmbeddedServers()
+	results = append(results, FetchResult{
+		Source:  "embedded",
+		Count:   len(embedded),
+		Servers: embedded,
+	})
+
+	// External fetchers
+	for _, fetcher := range r.fetchers {
+		servers, err := fetcher.Fetch(ctx)
+		result := FetchResult{
+			Source: fetcher.Name(),
+		}
+		if err != nil {
+			result.Error = err
+		} else {
+			result.Count = len(servers)
+			result.Servers = servers
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
 }
 
 // Search searches for servers matching a query
@@ -218,7 +276,8 @@ func matchesQuery(server types.MCPServer, query string) bool {
 
 // containsIgnoreCase checks if s contains substr (case-insensitive)
 func containsIgnoreCase(s, substr string) bool {
-	// Simple case-insensitive contains
-	// TODO: Use strings.Contains with ToLower
-	return len(s) > 0 && len(substr) > 0
+	if len(s) == 0 || len(substr) == 0 {
+		return false
+	}
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

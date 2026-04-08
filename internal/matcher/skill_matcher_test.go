@@ -1,0 +1,339 @@
+package matcher
+
+import (
+	"testing"
+
+	"github.com/yudgnahk/tools-decision/pkg/types"
+)
+
+func TestSkillMatcher_Match(t *testing.T) {
+	m := NewSkillMatcher()
+
+	// Create a minimal skill registry for testing
+	skills := []types.Skill{
+		{
+			ID:          "go-debug",
+			Name:        "Go Debugging Assistant",
+			Slug:        "go-debug",
+			Description: "Systematic debugging for Go applications",
+			Category:    types.SkillCategoryDebugging,
+			Compat: types.SkillCompat{
+				Languages:    []string{"go"},
+				Frameworks:   []string{"gin", "echo"},
+				ProjectTypes: []string{"api", "cli"},
+				UseCases:     []string{types.UseCaseDebugging},
+			},
+			RequiredTools:    []string{"filesystem", "git"},
+			RecommendedTools: []string{"github"},
+			Quality:          types.Quality{Score: 0.9, Maintained: true},
+			Source:           "official",
+		},
+		{
+			ID:          "security-review",
+			Name:        "Security Code Review",
+			Slug:        "security-review",
+			Description: "Security-focused code review checklist",
+			Category:    types.SkillCategoryReview,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"all"},
+				UseCases:     []string{types.UseCaseCodeReview, types.UseCaseSecurity},
+			},
+			RequiredTools:    []string{"git"},
+			RecommendedTools: []string{"github"},
+			Quality:          types.Quality{Score: 0.95, Maintained: true},
+			Source:           "official",
+		},
+		{
+			ID:          "api-design",
+			Name:        "REST API Design Guide",
+			Slug:        "api-design",
+			Description: "Best practices for designing RESTful APIs",
+			Category:    types.SkillCategoryArchitecture,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"api"},
+				UseCases:     []string{types.UseCaseArchitecture, types.UseCaseAPIDesign},
+			},
+			RequiredTools:    []string{"filesystem"},
+			RecommendedTools: []string{"fetch"},
+			Quality:          types.Quality{Score: 0.92, Maintained: true},
+			Source:           "official",
+		},
+		{
+			ID:          "python-debug",
+			Name:        "Python Debugging Guide",
+			Slug:        "python-debug",
+			Description: "Systematic debugging for Python applications",
+			Category:    types.SkillCategoryDebugging,
+			Compat: types.SkillCompat{
+				Languages:    []string{"python"},
+				Frameworks:   []string{"fastapi", "django", "flask"},
+				ProjectTypes: []string{"api", "cli", "web_app"},
+				UseCases:     []string{types.UseCaseDebugging},
+			},
+			RequiredTools:    []string{"filesystem", "git"},
+			RecommendedTools: []string{"github"},
+			Quality:          types.Quality{Score: 0.9, Maintained: true},
+			Source:           "official",
+		},
+	}
+
+	// Create server recommendations for synergy scoring
+	serverRecommendations := []types.Recommendation{
+		{
+			Server: types.MCPServer{ID: "filesystem", Name: "Filesystem"},
+			Score:  0.9,
+		},
+		{
+			Server: types.MCPServer{ID: "git", Name: "Git"},
+			Score:  0.85,
+		},
+		{
+			Server: types.MCPServer{ID: "github", Name: "GitHub"},
+			Score:  0.8,
+		},
+	}
+
+	tests := []struct {
+		name           string
+		context        *types.ProjectContext
+		wantTopSkill   string
+		wantMinResults int
+	}{
+		{
+			name: "Go project with debugging use case",
+			context: &types.ProjectContext{
+				Languages: []types.Language{{Name: "go", Confidence: 0.95}},
+				UseCases:  []types.UseCase{{Name: types.UseCaseDebugging, Confidence: 0.9}},
+				Type:      types.ProjectTypeAPI,
+			},
+			wantTopSkill:   "go-debug",
+			wantMinResults: 1,
+		},
+		{
+			name: "Python project should rank python skills higher",
+			context: &types.ProjectContext{
+				Languages: []types.Language{{Name: "python", Confidence: 0.95}},
+				UseCases:  []types.UseCase{{Name: types.UseCaseDebugging, Confidence: 0.9}},
+			},
+			wantTopSkill:   "python-debug",
+			wantMinResults: 1,
+		},
+		{
+			name: "API project should include api-design skill",
+			context: &types.ProjectContext{
+				Type:     types.ProjectTypeAPI,
+				UseCases: []types.UseCase{{Name: types.UseCaseAPIDesign, Confidence: 0.85}},
+			},
+			wantMinResults: 1,
+		},
+		{
+			name: "Security review use case should match security skill",
+			context: &types.ProjectContext{
+				Languages: []types.Language{{Name: "typescript", Confidence: 0.9}},
+				UseCases:  []types.UseCase{{Name: types.UseCaseSecurity, Confidence: 0.9}},
+			},
+			wantTopSkill:   "security-review",
+			wantMinResults: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results := m.Match(tt.context, skills, serverRecommendations, 10)
+
+			if len(results) < tt.wantMinResults {
+				t.Errorf("expected at least %d results, got %d", tt.wantMinResults, len(results))
+			}
+
+			if tt.wantTopSkill != "" && len(results) > 0 {
+				if results[0].Skill.Slug != tt.wantTopSkill {
+					t.Errorf("expected top skill %s, got %s (score: %.2f)", tt.wantTopSkill, results[0].Skill.Slug, results[0].Score)
+					// Print all results for debugging
+					for i, r := range results {
+						t.Logf("  %d. %s (score: %.2f)", i+1, r.Skill.Slug, r.Score)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestSkillMatcher_LanguageScore(t *testing.T) {
+	m := NewSkillMatcher()
+
+	tests := []struct {
+		name         string
+		projectLangs []types.Language
+		skillLangs   []string
+		wantScore    float64
+		wantMatched  int
+	}{
+		{
+			name:         "Exact language match",
+			projectLangs: []types.Language{{Name: "go", Confidence: 0.95}},
+			skillLangs:   []string{"go"},
+			wantScore:    0.95,
+			wantMatched:  1,
+		},
+		{
+			name:         "All languages support",
+			projectLangs: []types.Language{{Name: "rust", Confidence: 0.9}},
+			skillLangs:   []string{"all"},
+			wantScore:    0.7,
+			wantMatched:  1, // "all languages" is returned
+		},
+		{
+			name:         "No match",
+			projectLangs: []types.Language{{Name: "go", Confidence: 0.9}},
+			skillLangs:   []string{"python", "javascript"},
+			wantScore:    0,
+			wantMatched:  0,
+		},
+		{
+			name: "Multiple languages, partial match",
+			projectLangs: []types.Language{
+				{Name: "go", Confidence: 0.95},
+				{Name: "python", Confidence: 0.5},
+			},
+			skillLangs:  []string{"go"},
+			wantScore:   0.95,
+			wantMatched: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			score, matched := m.languageScore(tt.projectLangs, tt.skillLangs)
+			if score != tt.wantScore {
+				t.Errorf("expected score %.2f, got %.2f", tt.wantScore, score)
+			}
+			if len(matched) != tt.wantMatched {
+				t.Errorf("expected %d matched, got %d", tt.wantMatched, len(matched))
+			}
+		})
+	}
+}
+
+func TestSkillMatcher_ToolSynergyScore(t *testing.T) {
+	m := NewSkillMatcher()
+
+	tests := []struct {
+		name         string
+		serverIDs    map[string]bool
+		skill        types.Skill
+		wantMinScore float64
+		wantMaxScore float64
+	}{
+		{
+			name:      "All required tools available",
+			serverIDs: map[string]bool{"filesystem": true, "git": true},
+			skill: types.Skill{
+				RequiredTools:    []string{"filesystem", "git"},
+				RecommendedTools: []string{},
+			},
+			wantMinScore: 0.5,
+			wantMaxScore: 1.0,
+		},
+		{
+			name:      "Missing required tool",
+			serverIDs: map[string]bool{"filesystem": true},
+			skill: types.Skill{
+				RequiredTools:    []string{"filesystem", "git"},
+				RecommendedTools: []string{},
+			},
+			wantMinScore: 0.0,
+			wantMaxScore: 0.35,
+		},
+		{
+			name:      "Recommended tools available",
+			serverIDs: map[string]bool{"filesystem": true, "github": true},
+			skill: types.Skill{
+				RequiredTools:    []string{},
+				RecommendedTools: []string{"github", "postgres"},
+			},
+			wantMinScore: 0.5,
+			wantMaxScore: 0.8,
+		},
+		{
+			name:      "No tool requirements",
+			serverIDs: map[string]bool{"filesystem": true},
+			skill: types.Skill{
+				RequiredTools:    []string{},
+				RecommendedTools: []string{},
+			},
+			wantMinScore: 0.5,
+			wantMaxScore: 0.5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			score := m.toolSynergyScore(tt.serverIDs, tt.skill)
+			if score < tt.wantMinScore || score > tt.wantMaxScore {
+				t.Errorf("expected score between %.2f and %.2f, got %.2f", tt.wantMinScore, tt.wantMaxScore, score)
+			}
+		})
+	}
+}
+
+func TestDetectSynergies(t *testing.T) {
+	servers := []types.Recommendation{
+		{Server: types.MCPServer{ID: "filesystem", Name: "Filesystem"}},
+		{Server: types.MCPServer{ID: "git", Name: "Git"}},
+		{Server: types.MCPServer{ID: "github", Name: "GitHub"}},
+	}
+
+	skills := []types.SkillRecommendation{
+		{
+			Skill: types.Skill{
+				ID:               "go-debug",
+				Name:             "Go Debugging",
+				RequiredTools:    []string{"filesystem", "git"},
+				RecommendedTools: []string{"github"},
+			},
+		},
+	}
+
+	synergies := DetectSynergies(servers, skills)
+
+	if len(synergies) == 0 {
+		t.Error("expected to detect synergies")
+	}
+
+	// Should detect synergy with github (recommended tool)
+	foundGithub := false
+	for _, s := range synergies {
+		if s.ServerID == "github" {
+			foundGithub = true
+			break
+		}
+	}
+	if !foundGithub {
+		t.Error("expected to find GitHub synergy")
+	}
+}
+
+func TestContainsString(t *testing.T) {
+	tests := []struct {
+		slice    []string
+		str      string
+		expected bool
+	}{
+		{[]string{"go", "python"}, "go", true},
+		{[]string{"go", "python"}, "GO", true}, // case insensitive
+		{[]string{"go", "python"}, "rust", false},
+		{[]string{}, "go", false},
+		{[]string{"all"}, "all", true},
+	}
+
+	for _, tt := range tests {
+		result := containsString(tt.slice, tt.str)
+		if result != tt.expected {
+			t.Errorf("containsString(%v, %s) = %v, want %v", tt.slice, tt.str, result, tt.expected)
+		}
+	}
+}

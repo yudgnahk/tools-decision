@@ -8,6 +8,7 @@ type ProjectContext struct {
 	Tools      []Tool      `json:"tools"`
 	Services   []Service   `json:"services"`
 	Type       ProjectType `json:"type"`
+	UseCases   []UseCase   `json:"use_cases,omitempty"`
 }
 
 // Language represents a detected programming language
