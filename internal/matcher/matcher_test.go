@@ -328,3 +328,58 @@ func TestMatcher_ServerArchetypeMetadata(t *testing.T) {
 		}
 	})
 }
+
+func TestMatcher_AutomationServerPromotionByArchetype(t *testing.T) {
+	m := New()
+
+	servers := []types.MCPServer{
+		{
+			ID:                    "puppeteer",
+			Name:                  "Puppeteer",
+			Slug:                  "puppeteer",
+			Categories:            []string{"web", "browser", "automation"},
+			Tags:                  []string{"puppeteer", "automation", "browser"},
+			RecommendedArchetypes: []types.Archetype{types.ArchetypeAutomationBot, types.ArchetypeDesktopApp},
+			Quality:               types.Quality{Score: 0.85, Maintained: true},
+		},
+		{
+			ID:         "filesystem",
+			Name:       "Filesystem",
+			Slug:       "filesystem",
+			Categories: []string{"core", "filesystem"},
+			Tags:       []string{"files"},
+			Quality:    types.Quality{Score: 0.95, Maintained: true},
+		},
+	}
+
+	t.Run("includes puppeteer with strong automation archetype", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeAutomationBot, Confidence: 0.95}},
+			Type:       types.ProjectTypeCLI,
+		}
+		results := m.Match(ctx, servers, 10)
+		found := false
+		for _, r := range results {
+			if r.Server.Slug == "puppeteer" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected puppeteer to be promoted for automation archetype")
+		}
+	})
+
+	t.Run("excludes puppeteer without automation intent", func(t *testing.T) {
+		ctx := &types.ProjectContext{
+			Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeDataProcessing, Confidence: 0.9}},
+			Type:       types.ProjectTypeCLI,
+		}
+		results := m.Match(ctx, servers, 10)
+		for _, r := range results {
+			if r.Server.Slug == "puppeteer" {
+				t.Fatalf("expected puppeteer to be excluded without automation archetype")
+			}
+		}
+	})
+}

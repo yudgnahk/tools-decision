@@ -80,16 +80,22 @@ func (d *GoDetector) Detect(ctx context.Context, projectPath string) (*DetectorR
 
 	// Detect services
 	serviceMap := map[string]string{
-		"github.com/lib/pq":              "postgresql",
-		"github.com/jackc/pgx":           "postgresql",
-		"github.com/go-sql-driver/mysql": "mysql",
-		"go.mongodb.org/mongo-driver":    "mongodb",
-		"github.com/go-redis/redis":      "redis",
-		"github.com/redis/go-redis":      "redis",
-		"github.com/aws/aws-sdk-go":      "aws",
-		"github.com/aws/aws-sdk-go-v2":   "aws",
-		"gorm.io/gorm":                   "database",
-		"github.com/jmoiron/sqlx":        "database",
+		"github.com/lib/pq":                             "postgresql",
+		"github.com/jackc/pgx":                          "postgresql",
+		"github.com/go-sql-driver/mysql":                "mysql",
+		"go.mongodb.org/mongo-driver":                   "mongodb",
+		"github.com/go-redis/redis":                     "redis",
+		"github.com/redis/go-redis":                     "redis",
+		"github.com/aws/aws-sdk-go":                     "aws",
+		"github.com/aws/aws-sdk-go-v2":                  "aws",
+		"gorm.io/gorm":                                  "database",
+		"github.com/jmoiron/sqlx":                       "database",
+		"github.com/playwright-community/playwright-go": "playwright",
+		"github.com/tebeka/selenium":                    "selenium",
+		"github.com/xuri/excelize":                      "excelize",
+		"github.com/xuri/excelize/v2":                   "excelize",
+		"github.com/sashabaranov/go-openai":             "openai",
+		"github.com/tmc/langchaingo":                    "langchain",
 	}
 
 	for dep, service := range serviceMap {
@@ -109,9 +115,9 @@ func (d *GoDetector) Detect(ctx context.Context, projectPath string) (*DetectorR
 		result.Type = types.ProjectTypeCLI
 	}
 
-	// Check for cmd directory (indicates CLI tool)
+	// Check for cmd directory (often CLI entrypoints), but do not override API.
 	cmdPath := filepath.Join(projectPath, "cmd")
-	if info, err := os.Stat(cmdPath); err == nil && info.IsDir() {
+	if info, err := os.Stat(cmdPath); err == nil && info.IsDir() && result.Type == types.ProjectTypeUnknown {
 		result.Type = types.ProjectTypeCLI
 	}
 

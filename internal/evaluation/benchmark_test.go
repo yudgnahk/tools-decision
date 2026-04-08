@@ -27,6 +27,7 @@ type benchmarkFixture struct {
 	denyServers  []string
 	allowSkills  []string
 	denySkills   []string
+	maxGeneric5  float64
 }
 
 func TestNineRepoBenchmarkQualityGate(t *testing.T) {
@@ -94,6 +95,7 @@ func TestNineRepoBenchmarkQualityGate(t *testing.T) {
 			allowServers: []string{"postgres", "mysql", "redis", "sqlite", "filesystem", "git", "github", "fetch", "memory", "mongodb"},
 			denyServers:  []string{"stripe", "prisma"},
 			allowSkills:  []string{"go-project-structure", "go-debug", "api-design", "performance-review", "database-optimization", "microservices-design"},
+			maxGeneric5:  0.20,
 		},
 		{
 			name: "goxkey",
@@ -169,6 +171,7 @@ func TestNineRepoBenchmarkQualityGate(t *testing.T) {
 			allowServers: []string{"postgres", "mysql", "sqlite", "mongodb", "redis", "filesystem", "git", "github", "fetch", "memory"},
 			denyServers:  []string{"stripe", "prisma"},
 			allowSkills:  []string{"go-project-structure", "go-debug", "microservices-design", "api-design", "security-review", "database-optimization"},
+			maxGeneric5:  0.20,
 		},
 		{
 			name: "resume",
@@ -200,6 +203,7 @@ func TestNineRepoBenchmarkQualityGate(t *testing.T) {
 			allowServers: []string{"postgres", "sqlite", "mysql", "mongodb", "redis", "filesystem", "git", "github", "fetch", "memory"},
 			denyServers:  []string{"stripe", "prisma"},
 			allowSkills:  []string{"go-project-structure", "go-debug", "microservices-design", "api-design", "performance-review", "database-optimization"},
+			maxGeneric5:  0.20,
 		},
 	}
 
@@ -225,6 +229,9 @@ func TestNineRepoBenchmarkQualityGate(t *testing.T) {
 		sPrecision := precisionAt(topServerSlugs, fx.allowServers, 10)
 		kPrecision := precisionAt(topSkillSlugs, fx.allowSkills, 5)
 		gRate := genericSkillRate(skillRecs, 5)
+		if fx.maxGeneric5 > 0 && gRate > fx.maxGeneric5 {
+			t.Fatalf("%s: generic skill rate too high in top-5: got %.2f want <= %.2f (skills=%v)", fx.name, gRate, fx.maxGeneric5, topSkillSlugs)
+		}
 
 		isGood := sPrecision >= goodServerPrecisionCutoff && kPrecision >= goodSkillPrecisionCutoff
 		results = append(results, result{

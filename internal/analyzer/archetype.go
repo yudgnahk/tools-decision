@@ -19,6 +19,7 @@ type archetypeFileSignals struct {
 	tabularFiles   int
 	automationHits int
 	mediaHits      int
+	dataHits       int
 }
 
 func detectArchetypes(ctx *types.ProjectContext, projectPath string) []types.ArchetypeSignal {
@@ -82,7 +83,7 @@ func detectArchetypes(ctx *types.ProjectContext, projectPath string) []types.Arc
 		add(types.ArchetypeAIContentPipe, 0.6, "genai service detected")
 	}
 
-	if hasAny(services, "pandas", "openpyxl", "excel", "csv") {
+	if hasAny(services, "pandas", "openpyxl", "excel", "csv", "excelize") {
 		add(types.ArchetypeDataProcessing, 0.6, "data processing dependency detected")
 	}
 
@@ -103,6 +104,49 @@ func detectArchetypes(ctx *types.ProjectContext, projectPath string) []types.Arc
 
 	if fileSignals.mediaHits > 0 {
 		add(types.ArchetypeAIContentPipe, 0.35, "media pipeline files detected")
+	}
+
+	if fileSignals.dataHits > 0 {
+		add(types.ArchetypeDataProcessing, 0.25, "data pipeline file naming detected")
+	}
+
+	automationSignalCount := 0
+	if hasAny(frameworks, "playwright", "puppeteer", "selenium") {
+		automationSignalCount++
+	}
+	if hasAny(services, "playwright", "puppeteer", "selenium") {
+		automationSignalCount++
+	}
+	if fileSignals.automationHits > 0 {
+		automationSignalCount++
+	}
+	if automationSignalCount >= 2 {
+		add(types.ArchetypeAutomationBot, 0.2, "multiple automation signals aligned")
+	}
+
+	dataSignalCount := 0
+	if hasAny(services, "pandas", "openpyxl", "excel", "csv", "excelize") {
+		dataSignalCount++
+	}
+	if fileSignals.tabularFiles > 0 {
+		dataSignalCount++
+	}
+	if fileSignals.dataHits > 0 {
+		dataSignalCount++
+	}
+	if dataSignalCount >= 2 {
+		add(types.ArchetypeDataProcessing, 0.2, "multiple data-processing signals aligned")
+	}
+
+	aiSignalCount := 0
+	if hasAny(services, "openai", "anthropic", "langchain") {
+		aiSignalCount++
+	}
+	if fileSignals.mediaHits > 0 {
+		aiSignalCount++
+	}
+	if aiSignalCount >= 2 {
+		add(types.ArchetypeAIContentPipe, 0.18, "multiple AI/media pipeline signals aligned")
 	}
 
 	if ctx.Type == types.ProjectTypeUnknown && len(ctx.Frameworks) == 0 && len(ctx.Services) == 0 && len(ctx.Languages) > 0 {
@@ -170,6 +214,10 @@ func collectArchetypeFileSignals(projectPath string) archetypeFileSignals {
 
 		if strings.Contains(name, "automation") || strings.Contains(name, "bot") || strings.Contains(name, "crawl") || strings.Contains(name, "scrape") {
 			signals.automationHits++
+		}
+
+		if strings.Contains(name, "etl") || strings.Contains(name, "pipeline") || strings.Contains(name, "dataset") || strings.Contains(name, "transform") {
+			signals.dataHits++
 		}
 
 		if strings.Contains(name, "ffmpeg") || strings.Contains(name, "moviepy") || strings.Contains(name, "pydub") {

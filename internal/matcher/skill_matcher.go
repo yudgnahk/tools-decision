@@ -111,10 +111,12 @@ func (m *SkillMatcher) applyArchetypePolicy(
 	hasAutomationSignal := hasFrameworkOrService(ctx, "playwright", "puppeteer", "selenium")
 	hasDataSignal := hasFrameworkOrService(ctx, "pandas", "openpyxl", "excelize")
 	hasAIPipelineSignal := hasFrameworkOrService(ctx, "openai", "anthropic", "langchain", "moviepy", "pydub", "ffmpeg")
+	hasDatabaseSignal := hasFrameworkOrService(ctx, "postgresql", "postgres", "mysql", "mongodb", "redis", "sqlite", "database", "prisma", "gorm", "sqlx", "sqlalchemy") ||
+		hasProjectUseCase(ctx.UseCases, types.UseCaseDatabaseDesign, 0.75)
 
 	requiresAPI := containsString(skill.Compat.UseCases, types.UseCaseAPIDesign) ||
 		containsString(skill.Compat.UseCases, types.UseCaseDatabaseDesign) ||
-		containsString(skill.Compat.ProjectTypes, string(types.ProjectTypeAPI))
+		isAPIOnlyProjectTypeSkill(skill)
 
 	explicitAPIUseCase := hasProjectUseCase(ctx.UseCases, types.UseCaseAPIDesign, 0.8) ||
 		hasProjectUseCase(ctx.UseCases, types.UseCaseDatabaseDesign, 0.8)
@@ -136,7 +138,11 @@ func (m *SkillMatcher) applyArchetypePolicy(
 	if strings.Contains(slug, "latex") && docConf < 0.6 && !hasProjectUseCase(ctx.UseCases, types.UseCaseDocumentation, 0.75) {
 		return 0, false
 	}
-	if (strings.Contains(slug, "rust-desktop") || strings.Contains(slug, "gui-event-loop")) && desktopConf < 0.6 {
+	hasDesktopSignal := hasFrameworkOrService(ctx, "tauri", "dioxus", "egui", "iced", "gtk", "electron", "cocoa") || ctx.Type == types.ProjectTypeDesktop
+	if isDesktopSkillSlug(slug) && desktopConf < 0.55 && !hasDesktopSignal {
+		return 0, false
+	}
+	if isDesktopSkillSlug(slug) && desktopConf < 0.65 {
 		score *= 0.6
 	}
 	if strings.Contains(slug, "etl-data-quality") && dataConf < 0.6 {
@@ -145,6 +151,15 @@ func (m *SkillMatcher) applyArchetypePolicy(
 	if strings.Contains(slug, "ai-media-pipeline") && aiPipeConf < 0.6 {
 		score *= 0.6
 	}
+	if strings.Contains(slug, "ai-media-pipeline") && !hasLanguage(ctx, "python", 0.85) {
+		score *= 0.5
+	}
+	if strings.Contains(slug, "etl-data-quality") && !(hasLanguage(ctx, "python", 0.8) || hasLanguage(ctx, "go", 0.8)) {
+		return 0, false
+	}
+	if (strings.Contains(slug, "database-optimization") || containsString(skill.Compat.UseCases, types.UseCaseDatabaseDesign)) && !hasDatabaseSignal {
+		score *= 0.55
+	}
 
 	if docConf >= 0.7 && isBackendOrInfraSkill(skill) && !explicitAPIUseCase {
 		return 0, false
@@ -152,11 +167,25 @@ func (m *SkillMatcher) applyArchetypePolicy(
 
 	if ctx.Type != types.ProjectTypeUnknown && len(skill.Compat.ProjectTypes) > 0 {
 		if !containsString(skill.Compat.ProjectTypes, "all") && !containsString(skill.Compat.ProjectTypes, string(ctx.Type)) {
-			score *= 0.65
+			multiplier := 0.65
+			if isLanguageSpecificDebugSkill(skill) && hasProjectUseCase(ctx.UseCases, types.UseCaseDebugging, 0.75) {
+				multiplier = 0.9
+			}
+			score *= multiplier
 		}
 	}
 
 	if isGenericSkill(skill) {
+		if apiConf >= 0.72 {
+			if hasUseCaseIntersection(ctx.UseCases, skill.Compat.UseCases, 0.85) {
+				score *= 0.85
+			} else {
+				score *= 0.6
+			}
+		}
+		if apiConf >= 0.85 && !hasUseCaseIntersection(ctx.UseCases, skill.Compat.UseCases, 0.9) {
+			score *= 0.4
+		}
 		if docConf >= 0.7 || desktopConf >= 0.7 || dataConf >= 0.7 || autoConf >= 0.7 || aiPipeConf >= 0.7 {
 			if !hasUseCaseIntersection(ctx.UseCases, skill.Compat.UseCases, 0.75) {
 				return 0, false
@@ -178,6 +207,12 @@ func (m *SkillMatcher) applyArchetypePolicy(
 	}
 
 	if apiConf >= 0.7 && containsString(skill.Compat.ProjectTypes, string(types.ProjectTypeAPI)) {
+		score *= 1.12
+	}
+	if apiConf >= 0.8 && isAPIDomainSkill(skill) {
+		score *= 1.18
+	}
+	if apiConf >= 0.85 && hasLanguage(ctx, "go", 0.9) && isGoAPISkill(skill) {
 		score *= 1.12
 	}
 
@@ -208,8 +243,14 @@ func (m *SkillMatcher) applyArchetypePolicy(
 	if strings.Contains(slug, "go-debug") && hasLanguage(ctx, "go", 0.9) {
 		score *= 1.15
 	}
+	if strings.Contains(slug, "go-debug") && hasLanguage(ctx, "go", 0.9) && (apiConf >= 0.7 || dataConf >= 0.7 || autoConf >= 0.7) {
+		score *= 1.08
+	}
 	if strings.Contains(slug, "python-debug") && hasLanguage(ctx, "python", 0.9) {
 		score *= 1.15
+	}
+	if strings.Contains(slug, "js-debug") && (hasLanguage(ctx, "javascript", 0.85) || hasLanguage(ctx, "typescript", 0.85)) && (autoConf >= 0.65 || hasAutomationSignal) {
+		score *= 1.18
 	}
 
 	if score > 1.0 {
@@ -290,6 +331,51 @@ func supportsAllCompat(values []string) bool {
 	return false
 }
 
+func isDesktopSkillSlug(slug string) bool {
+	return strings.Contains(slug, "rust-desktop") || strings.Contains(slug, "gui-event-loop")
+}
+
+func isLanguageSpecificDebugSkill(skill types.Skill) bool {
+	slug := strings.ToLower(skill.Slug)
+	if !strings.Contains(slug, "-debug") {
+		return false
+	}
+	return !supportsAllCompat(skill.Compat.Languages)
+}
+
+func isAPIDomainSkill(skill types.Skill) bool {
+	if containsString(skill.Compat.ProjectTypes, string(types.ProjectTypeAPI)) ||
+		containsString(skill.Compat.UseCases, types.UseCaseAPIDesign) ||
+		containsString(skill.Compat.UseCases, types.UseCaseArchitecture) {
+		return true
+	}
+	slug := strings.ToLower(skill.Slug)
+	return strings.Contains(slug, "api-design") || strings.Contains(slug, "microservices")
+}
+
+func isGoAPISkill(skill types.Skill) bool {
+	if !containsString(skill.Compat.Languages, "go") {
+		return false
+	}
+	slug := strings.ToLower(skill.Slug)
+	return strings.Contains(slug, "go-debug") || strings.Contains(slug, "go-project-structure") || strings.Contains(slug, "microservices") || strings.Contains(slug, "api-design")
+}
+
+func isAPIOnlyProjectTypeSkill(skill types.Skill) bool {
+	if !containsString(skill.Compat.ProjectTypes, string(types.ProjectTypeAPI)) {
+		return false
+	}
+	for _, pt := range skill.Compat.ProjectTypes {
+		if strings.EqualFold(pt, "all") {
+			return false
+		}
+		if !strings.EqualFold(pt, string(types.ProjectTypeAPI)) {
+			return false
+		}
+	}
+	return true
+}
+
 func hasUseCaseIntersection(projectUseCases []types.UseCase, skillUseCases []string, minConfidence float64) bool {
 	if len(projectUseCases) == 0 || len(skillUseCases) == 0 {
 		return false
@@ -356,7 +442,7 @@ func (m *SkillMatcher) score(
 		}
 	} else if !containsString(skill.Compat.Languages, "all") {
 		// If skill requires specific language and none match, heavily penalize
-		totalScore -= 0.2
+		totalScore -= 0.35
 	}
 
 	// Use case matching

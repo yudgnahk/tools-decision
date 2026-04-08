@@ -72,9 +72,10 @@ func (m *Matcher) Match(ctx *types.ProjectContext, servers []types.MCPServer, li
 			continue
 		}
 
-		// Guardrail: do not recommend quality-only matches, except core baseline tools.
+		// Guardrail: do not recommend quality-only matches, except core baseline tools
+		// or strong archetype-intent servers.
 		if !breakdown.LanguageMatched && !breakdown.FrameworkMatched && !breakdown.ServiceMatched {
-			if !isCoreBaseline(server.Slug) {
+			if !isCoreBaseline(server.Slug) && !hasStrongArchetypeIntentForServer(ctx, server) {
 				continue
 			}
 		}
@@ -244,6 +245,29 @@ func strongSignalCount(b scoreBreakdown) int {
 		count++
 	}
 	return count
+}
+
+func hasStrongArchetypeIntentForServer(ctx *types.ProjectContext, server types.MCPServer) bool {
+	if len(ctx.Archetypes) == 0 {
+		return false
+	}
+
+	autoConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAutomationBot)
+	aiPipeConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeAIContentPipe)
+	dataConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDataProcessing)
+	desktopConf := archetypeConfidence(ctx.Archetypes, types.ArchetypeDesktopApp)
+
+	if isAutomationServer(server) && (autoConf >= 0.7 || desktopConf >= 0.75) {
+		return true
+	}
+	if isAIMediaServer(server) && aiPipeConf >= 0.7 {
+		return true
+	}
+	if isDatabaseHeavyServer(server) && dataConf >= 0.85 {
+		return true
+	}
+
+	return false
 }
 
 func isCoreBaseline(slug string) bool {

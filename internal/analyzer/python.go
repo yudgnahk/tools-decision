@@ -41,14 +41,16 @@ func (d *PythonDetector) Detect(ctx context.Context, projectPath string) (*Detec
 
 	// Check for pyproject.toml
 	pyprojectPath := filepath.Join(projectPath, "pyproject.toml")
-	if _, err := os.Stat(pyprojectPath); err == nil {
+	if data, err := os.ReadFile(pyprojectPath); err == nil {
 		if len(result.Languages) == 0 {
 			result.Languages = append(result.Languages, types.Language{
 				Name:       "python",
 				Confidence: 0.95,
 			})
 		}
-		// TODO: Parse pyproject.toml for dependencies
+		for dep := range parsePyprojectDependencies(string(data)) {
+			deps[dep] = true
+		}
 	}
 
 	// Check for setup.py
@@ -176,4 +178,112 @@ func parseRequirements(content string) map[string]bool {
 	}
 
 	return deps
+}
+
+func parsePyprojectDependencies(content string) map[string]bool {
+	deps := make(map[string]bool)
+	lines := strings.Split(content, "\n")
+	inProjectDeps := false
+	inProjectDepList := false
+	inPoetryDeps := false
+
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section := strings.ToLower(strings.Trim(line, "[]"))
+			inProjectDeps = false
+			inProjectDepList = false
+			inPoetryDeps = false
+
+			switch {
+			case section == "project":
+				inProjectDeps = true
+			case section == "tool.poetry.dependencies":
+				inPoetryDeps = true
+			case strings.HasPrefix(section, "tool.poetry.group.") && strings.HasSuffix(section, ".dependencies"):
+				inPoetryDeps = true
+			}
+			continue
+		}
+
+		if inProjectDeps && strings.HasPrefix(strings.ToLower(line), "dependencies") {
+			inProjectDepList = true
+			for _, token := range quotedTokens(line) {
+				name := normalizeDepName(token)
+				if name != "" {
+					deps[name] = true
+				}
+			}
+			if strings.Contains(line, "]") {
+				inProjectDepList = false
+			}
+			continue
+		}
+
+		if inProjectDepList {
+			for _, token := range quotedTokens(line) {
+				name := normalizeDepName(token)
+				if name != "" {
+					deps[name] = true
+				}
+			}
+			if strings.Contains(line, "]") {
+				inProjectDepList = false
+			}
+			continue
+		}
+
+		if inPoetryDeps {
+			if strings.HasPrefix(line, "{") || strings.HasPrefix(line, "}") {
+				continue
+			}
+			if idx := strings.Index(line, "="); idx > 0 {
+				name := strings.ToLower(strings.TrimSpace(line[:idx]))
+				if name != "" && name != "python" {
+					deps[name] = true
+				}
+			}
+		}
+	}
+
+	return deps
+}
+
+func quotedTokens(line string) []string {
+	var tokens []string
+	for {
+		start := strings.Index(line, "\"")
+		if start < 0 {
+			return tokens
+		}
+		line = line[start+1:]
+		end := strings.Index(line, "\"")
+		if end < 0 {
+			return tokens
+		}
+		tokens = append(tokens, line[:end])
+		line = line[end+1:]
+	}
+}
+
+func normalizeDepName(value string) string {
+	if value == "" {
+		return ""
+	}
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		switch r {
+		case ' ', '=', '>', '<', '!', '~', '[', ';':
+			return true
+		default:
+			return false
+		}
+	})
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(parts[0]))
 }

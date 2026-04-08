@@ -492,3 +492,178 @@ func TestSkillMatcher_ArchetypeSpecificSkillGating(t *testing.T) {
 		}
 	})
 }
+
+func TestSkillMatcher_DesktopSkillsGatedWithoutDesktopSignals(t *testing.T) {
+	m := NewSkillMatcher()
+
+	skills := []types.Skill{
+		{
+			ID:          "gui-event-loop-troubleshooting",
+			Name:        "GUI Event Loop Troubleshooting",
+			Slug:        "gui-event-loop-troubleshooting",
+			Description: "Desktop event-loop diagnostics",
+			Category:    types.SkillCategoryPerformance,
+			Compat: types.SkillCompat{
+				Languages:    []string{"rust", "typescript"},
+				Frameworks:   []string{"tauri", "electron"},
+				ProjectTypes: []string{"desktop"},
+				UseCases:     []string{types.UseCaseDebugging, types.UseCasePerformance},
+			},
+			Quality: types.Quality{Score: 0.88, Maintained: true},
+		},
+	}
+
+	ctx := &types.ProjectContext{
+		Languages: []types.Language{{Name: "python", Confidence: 0.98}},
+		UseCases:  []types.UseCase{{Name: types.UseCaseDebugging, Confidence: 0.9}},
+		Archetypes: []types.ArchetypeSignal{
+			{Name: types.ArchetypeAIContentPipe, Confidence: 0.95},
+		},
+		Type: types.ProjectTypeCLI,
+	}
+
+	results := m.Match(ctx, skills, nil, 5)
+	if len(results) != 0 {
+		t.Fatalf("expected desktop-only skill to be gated, got %d", len(results))
+	}
+}
+
+func TestSkillMatcher_APIDomainSkillOutranksGenericForAPIArchetype(t *testing.T) {
+	m := NewSkillMatcher()
+
+	skills := []types.Skill{
+		{
+			ID:          "generic-review",
+			Name:        "Generic Review",
+			Slug:        "generic-review",
+			Description: "General review",
+			Category:    types.SkillCategoryReview,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"all"},
+				UseCases:     []string{types.UseCaseCodeReview},
+			},
+			Quality: types.Quality{Score: 0.95, Maintained: true},
+		},
+		{
+			ID:          "api-design",
+			Name:        "API Design",
+			Slug:        "api-design",
+			Description: "API design practices",
+			Category:    types.SkillCategoryArchitecture,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"api"},
+				UseCases:     []string{types.UseCaseAPIDesign, types.UseCaseArchitecture},
+			},
+			Quality: types.Quality{Score: 0.9, Maintained: true},
+		},
+	}
+
+	ctx := &types.ProjectContext{
+		UseCases: []types.UseCase{{Name: types.UseCaseAPIDesign, Confidence: 0.9}},
+		Archetypes: []types.ArchetypeSignal{
+			{Name: types.ArchetypeAPIService, Confidence: 0.95},
+		},
+		Type: types.ProjectTypeAPI,
+	}
+
+	results := m.Match(ctx, skills, nil, 5)
+	if len(results) == 0 {
+		t.Fatalf("expected at least one skill, got %d", len(results))
+	}
+	if results[0].Skill.Slug != "api-design" {
+		t.Fatalf("expected api-design to outrank generic skill, got %s", results[0].Skill.Slug)
+	}
+}
+
+func TestSkillMatcher_GoAPIDomainOutranksGenericWithoutUseCases(t *testing.T) {
+	m := NewSkillMatcher()
+
+	skills := []types.Skill{
+		{
+			ID:          "security-review",
+			Name:        "Security Review",
+			Slug:        "security-review",
+			Description: "Generic review",
+			Category:    types.SkillCategoryReview,
+			Compat: types.SkillCompat{
+				Languages:    []string{"all"},
+				Frameworks:   []string{"all"},
+				ProjectTypes: []string{"all"},
+				UseCases:     []string{types.UseCaseSecurity, types.UseCaseCodeReview},
+			},
+			Quality: types.Quality{Score: 0.95, Maintained: true},
+		},
+		{
+			ID:          "go-debug",
+			Name:        "Go Debugging Assistant",
+			Slug:        "go-debug",
+			Description: "Go debugging",
+			Category:    types.SkillCategoryDebugging,
+			Compat: types.SkillCompat{
+				Languages:    []string{"go"},
+				Frameworks:   []string{"gin", "echo"},
+				ProjectTypes: []string{"api", "cli", "library"},
+				UseCases:     []string{types.UseCaseDebugging},
+			},
+			Quality: types.Quality{Score: 0.9, Maintained: true},
+		},
+	}
+
+	ctx := &types.ProjectContext{
+		Languages: []types.Language{{Name: "go", Confidence: 0.98}},
+		Frameworks: []types.Framework{
+			{Name: "gin", Confidence: 0.95},
+		},
+		Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeAPIService, Confidence: 0.95}},
+		Type:       types.ProjectTypeAPI,
+	}
+
+	results := m.Match(ctx, skills, nil, 5)
+	if len(results) == 0 {
+		t.Fatalf("expected at least one skill, got %d", len(results))
+	}
+	if results[0].Skill.Slug != "go-debug" {
+		t.Fatalf("expected go-debug to outrank generic skill, got %s", results[0].Skill.Slug)
+	}
+}
+
+func TestSkillMatcher_MixedProjectTypeDebugSkillNotGatedByAPIArchetype(t *testing.T) {
+	m := NewSkillMatcher()
+
+	skills := []types.Skill{
+		{
+			ID:          "go-debug",
+			Name:        "Go Debugging Assistant",
+			Slug:        "go-debug",
+			Description: "Go debugging",
+			Category:    types.SkillCategoryDebugging,
+			Compat: types.SkillCompat{
+				Languages:    []string{"go"},
+				Frameworks:   []string{"cobra"},
+				ProjectTypes: []string{"api", "cli", "library"},
+				UseCases:     []string{types.UseCaseDebugging},
+			},
+			Quality: types.Quality{Score: 0.9, Maintained: true},
+		},
+	}
+
+	ctx := &types.ProjectContext{
+		Languages:  []types.Language{{Name: "go", Confidence: 0.98}},
+		Frameworks: []types.Framework{{Name: "cobra", Confidence: 0.95}},
+		UseCases:   []types.UseCase{{Name: types.UseCaseDebugging, Confidence: 0.9}},
+		Archetypes: []types.ArchetypeSignal{{Name: types.ArchetypeAutomationBot, Confidence: 0.9}},
+		Type:       types.ProjectTypeCLI,
+	}
+
+	results := m.Match(ctx, skills, nil, 5)
+	if len(results) == 0 {
+		t.Fatalf("expected go-debug to remain eligible in non-api context")
+	}
+	if results[0].Skill.Slug != "go-debug" {
+		t.Fatalf("expected go-debug to be recommended, got %s", results[0].Skill.Slug)
+	}
+}

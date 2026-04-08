@@ -163,8 +163,8 @@ $ARGUMENTS`,
 			RecommendedTools: []string{"github", "puppeteer"},
 			Compat: types.SkillCompat{
 				Languages:    []string{"javascript", "typescript"},
-				Frameworks:   []string{"nextjs", "react", "vue", "express", "nestjs"},
-				ProjectTypes: []string{"web_app", "api", "library"},
+				Frameworks:   []string{"nextjs", "react", "vue", "express", "nestjs", "playwright", "puppeteer", "selenium"},
+				ProjectTypes: []string{"web_app", "api", "cli", "library"},
 				UseCases:     []string{types.UseCaseDebugging},
 			},
 			Quality: types.Quality{

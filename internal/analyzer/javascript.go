@@ -73,17 +73,20 @@ func (d *JavaScriptDetector) Detect(ctx context.Context, projectPath string) (*D
 
 	// Detect frameworks
 	frameworkMap := map[string]string{
-		"next":          "nextjs",
-		"react":         "react",
-		"vue":           "vue",
-		"@angular/core": "angular",
-		"svelte":        "svelte",
-		"express":       "express",
-		"fastify":       "fastify",
-		"@nestjs/core":  "nestjs",
-		"nuxt":          "nuxt",
-		"remix":         "remix",
-		"astro":         "astro",
+		"next":               "nextjs",
+		"react":              "react",
+		"vue":                "vue",
+		"@angular/core":      "angular",
+		"svelte":             "svelte",
+		"express":            "express",
+		"fastify":            "fastify",
+		"@nestjs/core":       "nestjs",
+		"nuxt":               "nuxt",
+		"remix":              "remix",
+		"astro":              "astro",
+		"playwright":         "playwright",
+		"puppeteer":          "puppeteer",
+		"selenium-webdriver": "selenium",
 	}
 
 	for dep, framework := range frameworkMap {
@@ -135,6 +138,13 @@ func (d *JavaScriptDetector) Detect(ctx context.Context, projectPath string) (*D
 		"prisma":             "prisma",
 		"aws-sdk":            "aws",
 		"@aws-sdk/client-s3": "s3",
+		"openai":             "openai",
+		"@anthropic-ai/sdk":  "anthropic",
+		"langchain":          "langchain",
+		"playwright":         "playwright",
+		"puppeteer":          "puppeteer",
+		"selenium-webdriver": "selenium",
+		"fluent-ffmpeg":      "ffmpeg",
 	}
 
 	for dep, service := range serviceMap {
